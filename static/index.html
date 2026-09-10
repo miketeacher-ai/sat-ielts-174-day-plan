@@ -185,16 +185,16 @@ body {
 }
 .word-card {
   perspective: 1000px;
-  height: 190px;
+  height: 165px;
   cursor: pointer;
   content-visibility: auto;
-  contain-intrinsic-size: 250px 190px;
+  contain-intrinsic-size: 250px 165px;
 }
 .word-card-inner {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s;
+  transition: transform 0.55s cubic-bezier(.25,.8,.3,1.1);
   transform-style: preserve-3d;
 }
 .word-card.flipped .word-card-inner {
@@ -229,7 +229,7 @@ body {
   overflow-y: auto;
 }
 .word-text {
-  font-size: 1.55rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--fg);
   margin-bottom: 6px;
@@ -626,14 +626,18 @@ canvas {
 
 .focus-launch{margin-bottom:12px;}
 .focus-wrap{max-width:780px;margin:0 auto;}
-.focus-card{perspective:1200px;min-height:430px;cursor:pointer;margin:6px 0 4px;}
-.focus-inner{position:relative;width:100%;min-height:430px;transition:transform .5s;transform-style:preserve-3d;}
+.focus-card{perspective:1200px;min-height:360px;cursor:pointer;margin:6px 0 4px;}
+.focus-inner{position:relative;width:100%;min-height:360px;transition:transform .55s cubic-bezier(.25,.8,.3,1.12);transform-style:preserve-3d;}
 .focus-card.flipped .focus-inner{transform:rotateY(180deg);}
-.focus-front,.focus-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:var(--radius);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:38px 30px;text-align:center;}
+@keyframes cardInRight{from{opacity:0;transform:translateX(48px);}to{opacity:1;transform:none;}}
+@keyframes cardInLeft{from{opacity:0;transform:translateX(-48px);}to{opacity:1;transform:none;}}
+.focus-card.enter-right .focus-inner{animation:cardInRight .3s ease-out;}
+.focus-card.enter-left .focus-inner{animation:cardInLeft .3s ease-out;}
+.focus-front,.focus-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:var(--radius);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:30px 26px;text-align:center;}
 .focus-front{background:linear-gradient(135deg,var(--card),var(--card-hover));border:1px solid var(--border);}
 .focus-back{background:linear-gradient(135deg,rgba(66,95,230,.12),rgba(129,82,233,.12));border:2px solid var(--accent);transform:rotateY(180deg);overflow-y:auto;}
-.focus-word{font-size:2.6rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;line-height:1.15;}
-.focus-def{font-size:1.35rem;font-weight:700;line-height:1.5;margin-bottom:12px;}
+.focus-word{font-size:2.1rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;line-height:1.15;}
+.focus-def{font-size:1.2rem;font-weight:700;line-height:1.5;margin-bottom:12px;}
 .focus-hint{margin-top:20px;font-size:.78rem;color:var(--muted);}
 .focus-nav{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap;}
 .focus-keys{text-align:center;font-size:.75rem;color:var(--muted);margin-top:10px;}
@@ -867,7 +871,7 @@ function renderFocus() {
     ${focus.target === 'day'
       ? `<button class="quiz-btn" style="padding:4px 10px;" onclick="gridView=true;focus=null;renderDay(currentDay)">▦ All cards</button>`
       : `<button class="quiz-btn" style="padding:4px 10px;" onclick="focus=null;renderDay(currentDay)">✕ Grid</button>`}</span></div>
-    <div class="focus-card${focus.flipped ? ' flipped' : ''}" onclick="focus.flipped=!focus.flipped;this.classList.toggle('flipped')">
+    <div class="focus-card${focus.flipped ? ' flipped' : ''}${focus.dir ? ` enter-${focus.dir > 0 ? 'right' : 'left'}` : ''}" onclick="focus.flipped=!focus.flipped;focus.dir=null;this.classList.toggle('flipped')">
       <div class="focus-inner">
         <div class="focus-front">
           <div class="focus-word">${esc(w.word)}</div>
@@ -897,6 +901,7 @@ function focusStep(d) {
   if (!focus) return;
   focus.i = (focus.i + d + focus.words.length) % focus.words.length;
   focus.flipped = false;
+  focus.dir = d;
   renderFocus();
 }
 
@@ -1492,7 +1497,8 @@ function drawChart() {
   ctx.fillStyle = '#758696';
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
-  for (let i = 0; i < data.length; i += 10) {
+  const step = Math.max(1, Math.ceil(data.length / 8));
+  for (let i = 0; i < data.length; i += step) {
     const x = pad.left + (chartW / (data.length - 1)) * i;
     ctx.fillText('D' + data[i].day, x, h - 8);
   }

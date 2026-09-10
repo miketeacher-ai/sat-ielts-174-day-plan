@@ -216,6 +216,15 @@ for i, e in enumerate(WORDS):
 NDAYS = max(e['day'] for e in WORDS)
 print('days:', NDAYS)
 WORDS.sort(key=lambda e: (e['day'], e['difficulty'], e['word']))
+# de-alphabetize: shuffle word order within each day (seeded, reproducible)
+by_day = {}
+for e in WORDS:
+    by_day.setdefault(e['day'], []).append(e)
+WORDS = []
+for day in sorted(by_day):
+    lst = by_day[day]
+    random.shuffle(lst)
+    WORDS.extend(lst)
 
 # ---------- exercises ----------
 TOPICS = ["Core Academic Vocabulary", "Root Words & Affixes", "Synonym Families",

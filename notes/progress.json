@@ -1,7 +1,23 @@
 {
   "completed_days": [],
-  "total_words_studied": 84,
-  "mastered_words": [],
+  "total_words_studied": 0,
+  "mastered_words": [
+    "abandon",
+    "abdomen",
+    "abnormal",
+    "absence",
+    "abstract",
+    "abusive",
+    "academia",
+    "academics",
+    "accessibility",
+    "accessory",
+    "accommodate"
+  ],
   "streak": 1,
+  "best_quiz": 0,
+  "best_timed": 0,
+  "quizzes_taken": 0,
+  "wrong_words": [],
   "last_visit": "2026-09-10"
 }

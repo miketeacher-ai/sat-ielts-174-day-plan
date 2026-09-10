@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SAT & IELTS 60-Day Study Plan</title>
+<title>SAT & IELTS 167-Day Study Plan</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 <style>
 :root {
@@ -650,7 +650,7 @@ canvas {
 <body>
 
 <div class="header">
-  <h1>📚 SAT & IELTS 60-Day Plan</h1>
+  <h1>📚 SAT & IELTS 167-Day Plan</h1>
   <div class="header-stats">
     <div class="stat">
       <div class="stat-value" id="totalWords">5000</div>
@@ -721,6 +721,8 @@ let wrongWords = new Set();
 let wordObj = {};
 let selectedAnswer = null;
 
+function totalDays() { return studyPlan.length || 167; }
+
 // Load data
 async function loadData() {
   try {
@@ -775,7 +777,7 @@ function barRow(name, done, total, cls) {
 function renderDashboard() {
   const el = document.getElementById('dashboard');
   if (!el || !studyPlan.length) return;
-  const daysPct = completedDays.size / 60;
+  const daysPct = completedDays.size / totalDays();
   const mByCat = {}, mByDiff = {};
   for (const w of masteredWords) {
     const m = wordMeta[w];
@@ -784,17 +786,17 @@ function renderDashboard() {
     mByDiff[m.diff] = (mByDiff[m.diff] || 0) + 1;
   }
   const wordsPct = 5000 ? masteredWords.size / 5000 : 0;
-  let next = 60;
-  for (let d = 1; d <= 60; d++) { if (!completedDays.has(d)) { next = d; break; } }
+  let next = totalDays();
+  for (let d = 1; d <= totalDays(); d++) { if (!completedDays.has(d)) { next = d; break; } }
   const catOrder = ['SAT', 'IELTS', 'Both'];
   const catCls = { SAT: '', IELTS: 'green', Both: 'purple' };
   el.innerHTML = `
     <div class="dash-head">
-      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of 60 days · ${masteredWords.size} of 5000 words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}/10` : ''}</div></div>
+      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of ${totalDays()} days · ${masteredWords.size} of 5000 words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}/10` : ''}</div></div>
       <div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button><button class="quiz-btn" onclick="startQuiz()">⚡ Quiz</button><button class="quiz-btn" onclick="startQuiz(10,null,true)">⏱ Timed</button><button class="quiz-btn" onclick="reviewView()">📋 Review (${reviewList().length})</button></div></div>
     </div>
     <div class="dash-grid">
-      <div class="tile">${donut(daysPct, completedDays.size + '/60', false)}
+      <div class="tile">${donut(daysPct, completedDays.size + '/' + totalDays(), false)}
         <div><div class="tile-num">${Math.round(daysPct * 100)}%</div><div class="tile-label">Days complete</div></div></div>
       <div class="tile">${donut(wordsPct, Math.round(wordsPct * 100) + '%', true)}
         <div><div class="tile-num">${masteredWords.size}</div><div class="tile-label">Words mastered</div></div></div>
@@ -834,6 +836,7 @@ async function masterFromReview(w) {
 }
 
 let focus = null;
+let gridView = false;
 
 function startFocus(shuffled) {
   const plan = studyPlan.find(p => p.day === currentDay);
@@ -841,19 +844,29 @@ function startFocus(shuffled) {
   stopTimer();
   const words = [...plan.words];
   if (shuffled) shuffle(words);
-  focus = { words, i: 0, flipped: false, shuffled: !!shuffled };
+  focus = { words, i: 0, flipped: false, shuffled: !!shuffled, target: 'page' };
   renderFocus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function initDayPager() {
+  const plan = studyPlan.find(p => p.day === currentDay);
+  if (!plan || !plan.words.length) return;
+  focus = { words: [...plan.words], i: 0, flipped: false, shuffled: false, target: 'day' };
+  renderFocus();
+}
+
 function renderFocus() {
   if (!focus) return;
-  const content = document.getElementById('content');
+  const content = document.getElementById(focus.target === 'day' ? 'dayPager' : 'content');
+  if (!content) return;
   const w = focus.words[focus.i];
   content.innerHTML = `<div class="card focus-wrap">
     <div class="quiz-top"><span>Day ${currentDay} · Card ${focus.i + 1} / ${focus.words.length}</span>
     <span><button class="quiz-btn" style="padding:4px 10px;" onclick="startFocus(${focus.shuffled ? 'false' : 'true'})">${focus.shuffled ? 'Unshuffle' : 'Shuffle'}</button>
-    <button class="quiz-btn" style="padding:4px 10px;" onclick="focus=null;renderDay(currentDay)">✕ Grid</button></span></div>
+    ${focus.target === 'day'
+      ? `<button class="quiz-btn" style="padding:4px 10px;" onclick="gridView=true;focus=null;renderDay(currentDay)">▦ All cards</button>`
+      : `<button class="quiz-btn" style="padding:4px 10px;" onclick="focus=null;renderDay(currentDay)">✕ Grid</button>`}</span></div>
     <div class="focus-card${focus.flipped ? ' flipped' : ''}" onclick="focus.flipped=!focus.flipped;this.classList.toggle('flipped')">
       <div class="focus-inner">
         <div class="focus-front">
@@ -1118,7 +1131,7 @@ function renderNav() {
     const m = wordObj[w];
     if (m) mDay[m.day] = (mDay[m.day] || 0) + 1;
   }
-  for (let d = 1; d <= 60; d++) {
+  for (let d = 1; d <= totalDays(); d++) {
     const btn = document.createElement('button');
     btn.className = 'nav-day' + (d === currentDay ? ' active' : '') + (completedDays.has(d) ? ' completed' : '');
     btn.textContent = d;
@@ -1136,6 +1149,7 @@ function renderNav() {
 
 function selectDay(d) {
   currentDay = d;
+  gridView = false;
   renderNav();
   renderDay(d);
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1195,7 +1209,7 @@ function renderDay(day) {
         </div>
       </div>
       <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width: ${((plan.words.length) / 85 * 100).toFixed(1)}%"></div>
+        <div class="progress-bar-fill" style="width: ${((plan.words.length) / 35 * 100).toFixed(1)}%"></div>
       </div>
       <button class="complete-btn${completedDays.has(plan.day) ? ' done' : ''}" onclick="toggleComplete(${plan.day})">${completedDays.has(plan.day) ? '✓ Day complete — undo' : 'Mark day complete'}</button>
     </div>
@@ -1205,8 +1219,9 @@ function renderDay(day) {
         <span class="card-title">📖 Words (${plan.words.length})</span>
         <span class="badge badge-${plan.words[0]?.category?.toLowerCase() || 'sat'}">${plan.words[0]?.category || 'Both'}</span>
       </div>
-      <div class="focus-launch"><button class="quiz-btn" onclick="startFocus()">🎯 Focus mode: one big card at a time</button></div>
-      <div class="words-grid">${wordCards}</div>
+      ${gridView
+        ? `<div class="focus-launch"><button class="quiz-btn" onclick="gridView=false;renderDay(currentDay)">🎯 Focus mode: one big card at a time</button></div><div class="words-grid">${wordCards}</div>`
+        : `<div id="dayPager"></div>`}
     </div>
 
     <div class="card">
@@ -1216,6 +1231,7 @@ function renderDay(day) {
       ${exercises}
     </div>
   `;
+  if (!gridView) initDayPager();
 }
 
 // Exercise
@@ -1398,7 +1414,7 @@ function runSearch(q) {
 
 function updateHeader() {
   document.getElementById('completedCount').textContent = completedDays.size;
-  document.getElementById('progressPct').textContent = Math.round((completedDays.size / 60) * 100) + '%';
+  document.getElementById('progressPct').textContent = Math.round((completedDays.size / totalDays()) * 100) + '%';
   document.getElementById('masteredCount').textContent = masteredWords.size;
 }
 
@@ -1444,7 +1460,7 @@ function drawChart() {
 
   // Data
   const data = [];
-  for (let d = 1; d <= 60; d++) {
+  for (let d = 1; d <= totalDays(); d++) {
     const plan = studyPlan.find(p => p.day === d);
     const studied = completedDays.has(d);
     data.push({ day: d, words: plan?.words?.length || 0, studied });
@@ -1456,7 +1472,7 @@ function drawChart() {
   ctx.beginPath();
   data.forEach((p, i) => {
     const x = pad.left + (chartW / (data.length - 1)) * i;
-    const y = pad.top + chartH - (p.words / 85) * chartH;
+    const y = pad.top + chartH - (p.words / 35) * chartH;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
@@ -1465,7 +1481,7 @@ function drawChart() {
   // Points
   data.forEach((p, i) => {
     const x = pad.left + (chartW / (data.length - 1)) * i;
-    const y = pad.top + chartH - (p.words / 85) * chartH;
+    const y = pad.top + chartH - (p.words / 35) * chartH;
     ctx.fillStyle = p.studied ? '#1faa6e' : '#425fe6';
     ctx.beginPath();
     ctx.arc(x, y, p.studied ? 5 : 3, 0, Math.PI * 2);

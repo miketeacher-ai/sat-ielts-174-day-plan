@@ -210,8 +210,11 @@ for w, src, cat in picks:
     WORDS.append(e)
 
 WORDS.sort(key=lambda e: (e['difficulty'], e['word']))
+WORDS_PER_DAY = 30
 for i, e in enumerate(WORDS):
-    e['day'] = (i % 60) + 1
+    e['day'] = (i // WORDS_PER_DAY) + 1
+NDAYS = max(e['day'] for e in WORDS)
+print('days:', NDAYS)
 WORDS.sort(key=lambda e: (e['day'], e['difficulty'], e['word']))
 
 # ---------- exercises ----------
@@ -234,7 +237,12 @@ TOPICS = ["Core Academic Vocabulary", "Root Words & Affixes", "Synonym Families"
     "Consolidation", "Practice Test"]
 
 plan = []
-for day in range(1, 61):
+def topic_for(day):
+    base = TOPICS[(day - 1) % len(TOPICS)]
+    rnd = (day - 1) // len(TOPICS)
+    return base if rnd == 0 else f"{base} · Round {rnd + 1}"
+
+for day in range(1, NDAYS + 1):
     dw = [w for w in WORDS if w['day'] == day]
     a, b = dw[0], dw[1] if len(dw) > 1 else dw[0]
     exs = [a['example'] if a['word'] in a['example'].lower() else f"The results clearly showed {a['word']}."]
@@ -258,7 +266,7 @@ for day in range(1, 61):
               'options': sorted([b['word']] + pool[:3], key=lambda x: random.random()),
               'answer': b['word'],
               'explanation': f"'{b['word']}' means: {b['definition']}. Example: {b['example']}"}
-        plan.append({'day': day, 'topic': TOPICS[(day - 1) % len(TOPICS)], 'words': dw, 'exercises': [e1, e2]})
+        plan.append({'day': day, 'topic': topic_for(day), 'words': dw, 'exercises': [e1, e2]})
         continue
     pool = [w['word'] for w in random.sample(WORDS, 200) if w['word'] != b['word'] and w['word'] != correct]
     e2 = {'type': 'synonym_match',
@@ -266,7 +274,7 @@ for day in range(1, 61):
           'options': sorted([correct] + pool[:3], key=lambda x: random.random()),
           'answer': correct,
           'explanation': f"'{correct}' shares the meaning of '{b['word']}': {b['definition']}."}
-    plan.append({'day': day, 'topic': TOPICS[(day - 1) % len(TOPICS)], 'words': dw, 'exercises': [e1, e2]})
+    plan.append({'day': day, 'topic': topic_for(day), 'words': dw, 'exercises': [e1, e2]})
 
 # ---------- save (backup old) ----------
 for fn in ('words.json', 'study_plan.json'):

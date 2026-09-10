@@ -106,6 +106,27 @@ for sub, heads in awl.items():
 print('awl valid words:', len(ielts_src))
 
 # ---------- build final pool ----------
+THEME_MAP = {
+    'noun.food': 'Food & Eating', 'noun.animal': 'Animals', 'noun.plant': 'Plants & Nature',
+    'noun.person': 'People & Society', 'noun.group': 'People & Society',
+    'noun.artifact': 'Objects & Tools', 'noun.location': 'Places & Travel', 'noun.time': 'Time',
+    'noun.quantity': 'Numbers & Amounts', 'noun.attribute': 'Qualities', 'noun.state': 'States & Conditions',
+    'noun.event': 'Events', 'noun.cognition': 'Thinking & Learning', 'noun.communication': 'Communication',
+    'noun.feeling': 'Emotions', 'noun.motive': 'Motives & Goals', 'noun.possession': 'Money & Belongings',
+    'noun.process': 'Processes', 'noun.phenomenon': 'Science & Phenomena', 'noun.substance': 'Materials',
+    'noun.body': 'Body & Health', 'noun.relation': 'Relationships',
+    'verb.motion': 'Movement & Travel', 'verb.cognition': 'Thinking & Learning',
+    'verb.communication': 'Communication', 'verb.emotion': 'Emotions', 'verb.social': 'People & Society',
+    'verb.possession': 'Money & Belongings', 'verb.consumption': 'Food & Eating',
+    'verb.creation': 'Making & Building', 'verb.competition': 'Competition', 'verb.contact': 'Touch & Contact',
+    'verb.perception': 'Senses', 'verb.change': 'Change', 'verb.stative': 'States & Conditions',
+    'verb.body': 'Body & Health', 'verb.weather': 'Weather & Nature',
+    'adj.all': 'Describing Words', 'adj.pert': 'Describing Words', 'adv.all': 'Manner & Degree',
+}
+
+def theme_of(lex):
+    return THEME_MAP.get(lex, 'General Academic')
+
 def enrich(word, src):
     syns = wn.synsets(word.replace(' ', '_'))
     pos = (src.get('pos') or '').lower()
@@ -141,9 +162,10 @@ def enrich(word, src):
     if not example:
         example = f"Students should understand the word '{word}' for the exam."
     p = pos if pos in ('noun', 'verb', 'adj', 'adv') else POSMAP.get(s.pos(), 'noun') if s else 'noun'
+    lex = s.lexname() if s else ''
     return {'word': word, 'definition': definition, 'part_of_speech': p,
             'difficulty': difficulty(word), 'synonyms': synonyms,
-            'example': example}
+            'example': example, 'theme': theme_of(lex)}
 
 both = sorted(set(sat_src) & ielts_src)
 sat_only = sorted(set(sat_src) - ielts_src)
@@ -211,20 +233,49 @@ for w, src, cat in picks:
 
 WORDS.sort(key=lambda e: (e['difficulty'], e['word']))
 WORDS_PER_DAY = 30
-for i, e in enumerate(WORDS):
-    e['day'] = (i // WORDS_PER_DAY) + 1
-NDAYS = max(e['day'] for e in WORDS)
-print('days:', NDAYS)
-WORDS.sort(key=lambda e: (e['day'], e['difficulty'], e['word']))
-# de-alphabetize: shuffle word order within each day (seeded, reproducible)
-by_day = {}
+from collections import defaultdict
+by_theme = defaultdict(list)
 for e in WORDS:
-    by_day.setdefault(e['day'], []).append(e)
-WORDS = []
-for day in sorted(by_day):
-    lst = by_day[day]
+    by_theme[e.get('theme', 'General Academic')].append(e)
+# split large themes into 30-word days; merge slivers (<12) into a mixed pool
+chunks = []
+mixed = []
+for theme in sorted(by_theme):
+    lst = by_theme[theme]
     random.shuffle(lst)
-    WORDS.extend(lst)
+    while len(lst) >= WORDS_PER_DAY:
+        chunks.append((theme, lst[:WORDS_PER_DAY]))
+        lst = lst[WORDS_PER_DAY:]
+    if lst:
+        if len(lst) >= 12:
+            chunks.append((theme, lst))
+        else:
+            mixed.extend(lst)
+random.shuffle(mixed)
+mixed_chunks = [mixed[i:i + WORDS_PER_DAY] for i in range(0, len(mixed), WORDS_PER_DAY)]
+if mixed_chunks:
+    if len(mixed_chunks) > 1 and len(mixed_chunks[-1]) < 12:
+        mixed_chunks[-2].extend(mixed_chunks.pop())
+    elif len(mixed_chunks) == 1 and len(mixed_chunks[0]) < 12 and chunks:
+        chunks[-1][1].extend(mixed_chunks.pop())
+    for ch in mixed_chunks:
+        chunks.append(('Mixed Academic Practice', ch))
+# order days easy -> hard by average difficulty; shuffle word order within each day
+def _avgd(c):
+    return sum(w['difficulty'] for w in c[1]) / len(c[1])
+chunks.sort(key=_avgd)
+WORDS = []
+THEME_PART = {}
+for n, (theme, lst) in enumerate(chunks, start=1):
+    part = THEME_PART.get(theme, 0) + 1
+    THEME_PART[theme] = part
+    random.shuffle(lst)
+    for e in lst:
+        e['day'] = n
+        e['day_theme'] = theme if part == 1 else f"{theme} · Part {part}"
+        WORDS.append(e)
+NDAYS = len(chunks)
+print('days:', NDAYS, '| themes:', len(THEME_PART))
 
 # ---------- exercises ----------
 TOPICS = ["Core Academic Vocabulary", "Root Words & Affixes", "Synonym Families",
@@ -275,7 +326,7 @@ for day in range(1, NDAYS + 1):
               'options': sorted([b['word']] + pool[:3], key=lambda x: random.random()),
               'answer': b['word'],
               'explanation': f"'{b['word']}' means: {b['definition']}. Example: {b['example']}"}
-        plan.append({'day': day, 'topic': topic_for(day), 'words': dw, 'exercises': [e1, e2]})
+        plan.append({'day': day, 'topic': dw[0].get('day_theme') or topic_for(day), 'words': dw, 'exercises': [e1, e2]})
         continue
     pool = [w['word'] for w in random.sample(WORDS, 200) if w['word'] != b['word'] and w['word'] != correct]
     e2 = {'type': 'synonym_match',
@@ -283,7 +334,7 @@ for day in range(1, NDAYS + 1):
           'options': sorted([correct] + pool[:3], key=lambda x: random.random()),
           'answer': correct,
           'explanation': f"'{correct}' shares the meaning of '{b['word']}': {b['definition']}."}
-    plan.append({'day': day, 'topic': topic_for(day), 'words': dw, 'exercises': [e1, e2]})
+    plan.append({'day': day, 'topic': dw[0].get('day_theme') or topic_for(day), 'words': dw, 'exercises': [e1, e2]})
 
 # ---------- save (backup old) ----------
 for fn in ('words.json', 'study_plan.json'):

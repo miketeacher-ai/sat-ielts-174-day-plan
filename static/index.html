@@ -582,6 +582,13 @@ canvas {
 .star-btn.on{color:#e6a700;}
 .star-btn:hover{background:rgba(66,95,230,.15);}
 
+.quiz-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:.85rem;color:var(--muted);}
+.quiz-actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;}
+.quiz-btn{background:var(--card);color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:10px 18px;font-weight:700;font-size:.88rem;cursor:pointer;}
+.quiz-btn:hover{background:var(--card-hover);}
+.quiz-review{margin-top:8px;font-size:.85rem;}
+.quiz-review div{padding:6px 0;border-bottom:1px solid var(--border);}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -658,6 +665,8 @@ let wordMeta = {};   // word -> {cat, diff}
 let catTotals = {};
 let diffTotals = {};
 let streak = 0;
+let bestQuiz = 0;
+let quizzesTaken = 0;
 let selectedAnswer = null;
 
 // Load data
@@ -728,8 +737,8 @@ function renderDashboard() {
   const catCls = { SAT: '', IELTS: 'green', Both: 'purple' };
   el.innerHTML = `
     <div class="dash-head">
-      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of 60 days · ${masteredWords.size} of 5000 words mastered</div></div>
-      <button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button>
+      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of 60 days · ${masteredWords.size} of 5000 words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}/10` : ''}</div></div>
+      <div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button><button class="quiz-btn" onclick="startQuiz()">⚡ Quiz me</button></div></div>
     </div>
     <div class="dash-grid">
       <div class="tile">${donut(daysPct, completedDays.size + '/60', false)}
@@ -752,6 +761,140 @@ async function toggleMastered(word) {
   updateHeader();
   renderDay(currentDay);
   renderDashboard();
+}
+
+let quiz = null;
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startQuiz(n = 10) {
+  const pool = [];
+  for (const p of studyPlan) for (const w of (p.words || [])) pool.push(w);
+  if (!pool.length) return;
+  const used = new Set(), qs = [];
+  let guard = 0;
+  while (qs.length < n && guard++ < n * 50) {
+    const w = pool[Math.floor(Math.random() * pool.length)];
+    if (used.has(w.word)) continue;
+    used.add(w.word);
+    const syns = (w.synonyms || []).filter(s => s !== w.word);
+    const types = syns.length ? ['synonym_match', 'synonym_match', 'definition_match', 'fill_in_blank']
+                              : ['definition_match', 'definition_match', 'fill_in_blank'];
+    qs.push(makeQuizQ(w, pool, types[Math.floor(Math.random() * types.length)]));
+  }
+  quiz = { qs, i: 0, score: 0, log: [] };
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderQuiz();
+}
+
+function pickDistractors(pool, excl, n) {
+  const banned = new Set(Array.isArray(excl) ? excl : [excl]);
+  const out = [];
+  const c = shuffle([...pool]);
+  for (const w of c) {
+    if (!banned.has(w.word) && !out.includes(w.word)) {
+      out.push(w.word);
+      if (out.length >= n) break;
+    }
+  }
+  return out;
+}
+
+function blankWord(sentence, word) {
+  try {
+    const r = new RegExp(escReg(word), 'i');
+    if (r.test(sentence)) return sentence.replace(r, '_____');
+  } catch(e) {}
+  return null;
+}
+
+function escReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function makeQuizQ(w, pool, type) {
+  if (type === 'synonym_match') {
+    const correct = w.synonyms.filter(s => s !== w.word)[0];
+    const opts = shuffle([correct, ...pickDistractors(pool, [w.word, correct], 3)]);
+    return { type, word: w.word,
+      q: `Which word is closest in meaning to '${w.word}'?`,
+      options: opts, answer: correct,
+      explain: `'${correct}' ≈ '${w.word}': ${w.definition}.` };
+  }
+  if (type === 'fill_in_blank') {
+    const sent = blankWord(w.example, w.word) || `The results clearly showed _____. (context: ${w.definition})`;
+    const opts = shuffle([w.word, ...pickDistractors(pool, w.word, 3)]);
+    return { type, word: w.word, q: sent, options: opts, answer: w.word,
+      explain: `'${w.word}' means: ${w.definition}.` };
+  }
+  const opts = shuffle([w.word, ...pickDistractors(pool, w.word, 3)]);
+  return { type: 'definition_match', word: w.word,
+    q: `Which word means: '${w.definition}'?`,
+    options: opts, answer: w.word,
+    explain: `'${w.word}': ${w.definition}. Example: ${w.example}` };
+}
+
+function renderQuiz() {
+  const content = document.getElementById('content');
+  const q = quiz.qs[quiz.i];
+  content.innerHTML = `<div class="card">
+    <div class="quiz-top"><span>Question ${quiz.i + 1} / ${quiz.qs.length}</span><span>Score: ${quiz.score}</span></div>
+    <div class="exercise-title">${q.type.replace(/_/g, ' ')}</div>
+    <div class="exercise-question">${esc(q.q)}</div>
+    <div class="exercise-options">
+      ${q.options.map(o => `<div class="exercise-option" onclick="answerQuiz('${esc(o).replace(/'/g, "\\'")}')">${esc(o)}</div>`).join('')}
+    </div>
+    <div class="explanation" id="quizExplain"></div>
+    <div class="quiz-actions" id="quizActions" style="display:none">
+      <button class="btn-primary btn" onclick="nextQuiz()">${quiz.i + 1 < quiz.qs.length ? 'Next →' : 'See results'}</button>
+      <button class="quiz-btn" onclick="renderDay(currentDay)">Exit quiz</button>
+    </div>
+  </div>`;
+}
+
+function answerQuiz(selected) {
+  const q = quiz.qs[quiz.i];
+  const opts = document.querySelectorAll('#content .exercise-option');
+  opts.forEach(el => {
+    el.style.pointerEvents = 'none';
+    if (el.textContent === q.answer) el.classList.add('correct');
+    else if (el.textContent === selected) el.classList.add('incorrect');
+  });
+  const ok = selected === q.answer;
+  if (ok) quiz.score++;
+  quiz.log.push({ q, picked: selected, ok });
+  const ex = document.getElementById('quizExplain');
+  ex.textContent = (ok ? '✓ ' : '✕ ') + q.explain;
+  ex.classList.add('show');
+  ex.style.borderLeftColor = ok ? 'var(--accent2)' : 'var(--danger)';
+  document.getElementById('quizActions').style.display = 'flex';
+}
+
+async function nextQuiz() {
+  quiz.i++;
+  if (quiz.i < quiz.qs.length) { renderQuiz(); return; }
+  quizzesTaken++;
+  if (quiz.score > bestQuiz) bestQuiz = quiz.score;
+  await saveProgress();
+  renderDashboard();
+  const content = document.getElementById('content');
+  const pct = Math.round(quiz.score / quiz.qs.length * 100);
+  content.innerHTML = `<div class="card">
+    <div class="card-header"><span class="card-title">⚡ Quiz results</span></div>
+    <div class="tile-num">${quiz.score} / ${quiz.qs.length} (${pct}%)</div>
+    <div class="dash-sub">Best: ${bestQuiz}/${quiz.qs.length} · Quizzes taken: ${quizzesTaken}</div>
+    <div class="quiz-actions">
+      <button class="btn-primary btn" onclick="startQuiz()">Retry</button>
+      <button class="quiz-btn" onclick="renderDay(currentDay)">Back to Day ${currentDay}</button>
+    </div>
+    <div class="quiz-review">${quiz.log.map(e =>
+      `<div>${e.ok ? '✓' : '✕'} <strong>${esc(e.q.word)}</strong> — ${esc(e.q.explain)}</div>`).join('')}</div>
+  </div>`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Navigation
@@ -941,6 +1084,8 @@ async function loadProgress() {
     const today = new Date().toISOString().slice(0, 10);
     const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     streak = data.streak || 0;
+    bestQuiz = data.best_quiz || 0;
+    quizzesTaken = data.quizzes_taken || 0;
     if (data.last_visit !== today) {
       streak = (data.last_visit === yest) ? streak + 1 : 1;
       saveProgress();
@@ -958,6 +1103,8 @@ async function saveProgress() {
         total_words_studied: wordsStudied,
         mastered_words: [...masteredWords],
         streak,
+        best_quiz: bestQuiz,
+        quizzes_taken: quizzesTaken,
         last_visit: new Date().toISOString().slice(0, 10)
       })
     });

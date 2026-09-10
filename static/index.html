@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT & IELTS 60-Day Study Plan</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --card-hover: #1c2129;
+  --border: #30363d;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --purple: #bc8cff;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Header */
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+.header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.stat {
+  text-align: center;
+}
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Navigation */
+.nav {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  position: sticky;
+  top: 65px;
+  z-index: 99;
+}
+.nav-day {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 48px;
+  text-align: center;
+}
+.nav-day:hover {
+  background: var(--card-hover);
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.nav-day.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.nav-day.completed {
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+.nav-day.completed::after {
+  content: '✓';
+  margin-left: 4px;
+}
+
+/* Main Layout */
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+}
+
+/* Cards */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+  animation: fadeInUp 0.4s ease-out;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-sat { background: rgba(88,166,255,0.15); color: var(--accent); }
+.badge-ielts { background: rgba(63,185,80,0.15); color: var(--accent2); }
+.badge-both { background: rgba(188,140,255,0.15); color: var(--purple); }
+
+/* Word Flip Cards */
+.words-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.word-card {
+  perspective: 1000px;
+  height: 120px;
+  cursor: pointer;
+}
+.word-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+.word-card.flipped .word-card-inner {
+  transform: rotateY(180deg);
+}
+.word-card-front, .word-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  text-align: center;
+}
+.word-card-front {
+  background: linear-gradient(135deg, var(--card), var(--card-hover));
+  border: 1px solid var(--border);
+}
+.word-card-back {
+  background: linear-gradient(135deg, rgba(88,166,255,0.1), rgba(188,140,255,0.1));
+  border: 1px solid var(--accent);
+  transform: rotateY(180deg);
+}
+.word-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.word-pos {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.word-def {
+  font-size: 0.85rem;
+  color: var(--fg);
+  line-height: 1.4;
+}
+.word-syn {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-top: 4px;
+}
+.word-example {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 8px;
+  line-height: 1.3;
+}
+.word-diff {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+.diff-1 { background: var(--accent2); }
+.diff-2 { background: #7ee787; }
+.diff-3 { background: var(--warning); }
+.diff-4 { background: #f0883e; }
+.diff-5 { background: var(--danger); }
+
+/* Exercises */
+.exercise {
+  background: rgba(88,166,255,0.05);
+  border: 1px solid rgba(88,166,255,0.2);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.exercise-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+.exercise-question {
+  font-size: 1rem;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.exercise-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.exercise-option {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  text-align: center;
+}
+.exercise-option:hover {
+  border-color: var(--accent);
+  background: var(--card-hover);
+}
+.exercise-option.selected {
+  border-color: var(--accent);
+  background: rgba(88,166,255,0.15);
+  color: var(--accent);
+  font-weight: 600;
+}
+.exercise-option.correct {
+  border-color: var(--accent2);
+  background: rgba(63,185,80,0.15);
+  color: var(--accent2);
+}
+.exercise-option.incorrect {
+  border-color: var(--danger);
+  background: rgba(248,81,73,0.15);
+  color: var(--danger);
+}
+.explanation {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(63,185,80,0.1);
+  border-left: 3px solid var(--accent2);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--fg);
+  display: none;
+}
+.explanation.show { display: block; animation: fadeInUp 0.3s ease-out; }
+
+/* Notes Panel */
+.notes-panel {
+  position: sticky;
+  top: 140px;
+  max-height: calc(100vh - 160px);
+  display: flex;
+  flex-direction: column;
+}
+.notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.notes-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.notes-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 400px;
+}
+.note-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  animation: fadeInUp 0.3s ease-out;
+}
+.note-text {
+  color: var(--fg);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.note-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.note-delete {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.note-delete:hover {
+  background: rgba(248,81,73,0.15);
+}
+.note-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.note-input input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.note-input input:focus {
+  border-color: var(--accent);
+}
+.note-input button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: opacity 0.2s;
+}
+.note-input button:hover { opacity: 0.85; }
+
+/* Progress Chart */
+.progress-chart {
+  margin-top: 16px;
+}
+canvas {
+  width: 100% !important;
+  height: 200px !important;
+}
+
+/* Token Status */
+.token-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(63,185,80,0.1);
+  border: 1px solid rgba(63,185,80,0.3);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--accent2);
+}
+.token-status.waiting {
+  background: rgba(210,153,34,0.1);
+  border-color: rgba(210,153,34,0.3);
+  color: var(--warning);
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-secondary {
+  background: var(--card-hover);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); }
+
+/* Day Info */
+.day-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.day-number {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+.day-topic {
+  font-size: 1.1rem;
+  color: var(--fg);
+}
+.day-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Progress Bar */
+.progress-bar-wrap {
+  background: var(--border);
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 10px;
+  transition: width 0.5s ease-out;
+}
+
+/* Study Mode Toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.mode-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.mode-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.mode-btn:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📚 SAT & IELTS 60-Day Plan</h1>
+  <div class="header-stats">
+    <div class="stat">
+      <div class="stat-value" id="totalWords">5000</div>
+      <div class="stat-label">Words</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="completedCount">0</div>
+      <div class="stat-label">Days Done</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="progressPct">0%</div>
+      <div class="stat-label">Progress</div>
+    </div>
+  </div>
+</div>
+
+<div class="nav" id="dayNav"></div>
+
+<div class="main">
+  <div class="content" id="content"></div>
+  <div class="sidebar">
+    <div class="card notes-panel">
+      <div class="notes-header">
+        <span class="notes-title">📝 Notes</span>
+        <div class="token-status" id="tokenStatus">✓ Ready</div>
+      </div>
+      <div class="notes-list" id="notesList"></div>
+      <div class="note-input">
+        <input type="text" id="noteInput" placeholder="Add a note..." maxlength="500">
+        <button onclick="addNote()">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">📊 Progress</div>
+      <div class="progress-chart">
+        <canvas id="progressChart" width="340" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = '/api';
+let currentDay = 1;
+let words = [];
+let studyPlan = [];
+let notes = [];
+let completedDays = new Set();
+let selectedAnswer = null;
+
+// Load data
+async function loadData() {
+  try {
+    const wp = await fetch(`${BASE}/words.json`).then(r => r.json());
+    words = wp.words || wp;
+  } catch(e) {
+    // Fallback: load from study plan
+  }
+  try {
+    const sp = await fetch(`${BASE}/plan`).then(r => r.json());
+    studyPlan = sp;
+  } catch(e) {
+    studyPlan = await fetch(`${BASE}/days`).then(r => r.json());
+  }
+  loadProgress();
+  renderNav();
+  renderDay(1);
+  updateHeader();
+  drawChart();
+}
+
+// Navigation
+function renderNav() {
+  const nav = document.getElementById('dayNav');
+  nav.innerHTML = '';
+  for (let d = 1; d <= 60; d++) {
+    const btn = document.createElement('button');
+    btn.className = 'nav-day' + (d === currentDay ? ' active' : '') + (completedDays.has(d) ? ' completed' : '');
+    btn.textContent = d;
+    btn.onclick = () => selectDay(d);
+    nav.appendChild(btn);
+  }
+}
+
+function selectDay(d) {
+  currentDay = d;
+  renderNav();
+  renderDay(d);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Render Day
+function renderDay(day) {
+  const content = document.getElementById('content');
+  const plan = studyPlan.find(p => p.day === day);
+  if (!plan) {
+    content.innerHTML = '<div class="card"><div class="empty-state"><div class="empty-state-icon">🔍</div><p>Day not found</p></div></div>';
+    return;
+  }
+
+  const wordCards = plan.words.map(w => `
+    <div class="word-card" onclick="this.classList.toggle('flipped')">
+      <div class="word-card-inner">
+        <div class="word-card-front">
+          <div class="word-text">${w.word}</div>
+          <div class="word-pos">${w.part_of_speech}</div>
+          <div class="word-diff diff-${w.difficulty}"></div>
+        </div>
+        <div class="word-card-back">
+          <div class="word-def">${w.definition}</div>
+          <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + w.synonyms.join(', ') : 'No close synonym — see definition'}</div>
+          <div class="word-example">${w.example}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  const exercises = plan.exercises.map((ex, i) => `
+    <div class="exercise" id="ex-${day}-${i}">
+      <div class="exercise-title">Exercise ${i + 1}: ${ex.type.replace(/_/g, ' ')}</div>
+      <div class="exercise-question">${ex.question}</div>
+      <div class="exercise-options">
+        ${ex.options.map((opt, j) => `
+          <div class="exercise-option" onclick="checkAnswer(${day}, ${i}, '${opt}', '${ex.answer}')">${opt}</div>
+        `).join('')}
+      </div>
+      <div class="explanation" id="explain-${day}-${i}">${ex.explanation}</div>
+    </div>
+  `).join('');
+
+  content.innerHTML = `
+    <div class="card">
+      <div class="day-info">
+        <div class="day-number">Day ${plan.day}</div>
+        <div>
+          <div class="day-topic">${plan.topic}</div>
+          <div class="day-meta">${plan.words.length} words · 2 exercises</div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width: ${((plan.words.length) / 85 * 100).toFixed(1)}%"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📖 Words (${plan.words.length})</span>
+        <span class="badge badge-${plan.words[0]?.category?.toLowerCase() || 'sat'}">${plan.words[0]?.category || 'Both'}</span>
+      </div>
+      <div class="words-grid">${wordCards}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">✏️ Exercises</span>
+      </div>
+      ${exercises}
+    </div>
+  `;
+}
+
+// Exercise
+function checkAnswer(day, exIdx, selected, correct) {
+  const exercise = document.getElementById(`ex-${day}-${exIdx}`);
+  const options = exercise.querySelectorAll('.exercise-option');
+  const explain = document.getElementById(`explain-${day}-${exIdx}`);
+
+  options.forEach((opt, i) => {
+    const val = opt.textContent;
+    if (val === correct) opt.classList.add('correct');
+    else if (val === selected && selected !== correct) opt.classList.add('incorrect');
+    opt.style.pointerEvents = 'none';
+  });
+
+  if (selected === correct) {
+    explain.classList.add('show');
+    explain.style.borderLeftColor = 'var(--accent2)';
+    explain.style.background = 'rgba(63,185,80,0.1)';
+  } else {
+    explain.classList.add('show');
+    explain.style.borderLeftColor = 'var(--danger)';
+    explain.style.background = 'rgba(248,81,73,0.1)';
+  }
+}
+
+// Notes
+async function loadNotes() {
+  try {
+    const res = await fetch(`${BASE}/notes`);
+    notes = await res.json();
+  } catch(e) {
+    notes = [];
+  }
+  renderNotes();
+}
+
+function renderNotes() {
+  const list = document.getElementById('notesList');
+  list.innerHTML = '';
+  notes.forEach(note => {
+    const item = document.createElement('div');
+    item.className = 'note-item';
+    item.innerHTML = `
+      <div class="note-text">${note.text}</div>
+      <div class="note-meta">
+        <span>Day ${note.day || '-'}</span>
+        <button class="note-delete" onclick="deleteNote(${note.id})">✕</button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+async function addNote() {
+  const input = document.getElementById('noteInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const note = { id: Date.now(), day: currentDay, text, created: new Date().toISOString() };
+  notes.push(note);
+  input.value = '';
+  renderNotes();
+
+  try {
+    await fetch(`${BASE}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(note)
+    });
+  } catch(e) {}
+}
+
+async function deleteNote(id) {
+  notes = notes.filter(n => n.id !== id);
+  renderNotes();
+  try {
+    await fetch(`${BASE}/notes`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+  } catch(e) {}
+}
+
+// Progress
+async function loadProgress() {
+  try {
+    const res = await fetch(`${BASE}/progress`);
+    const data = await res.json();
+    completedDays = new Set(data.completed_days || []);
+  } catch(e) {}
+}
+
+async function saveProgress() {
+  try {
+    await fetch(`${BASE}/progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed_days: [...completedDays], total_words_studied: wordsStudied })
+    });
+  } catch(e) {}
+}
+
+function updateHeader() {
+  document.getElementById('completedCount').textContent = completedDays.size;
+  document.getElementById('progressPct').textContent = Math.round((completedDays.size / 60) * 100) + '%';
+}
+
+// Token Status
+let lastAiCall = 0;
+function updateTokenStatus() {
+  const now = Date.now();
+  const elapsed = now - lastAiCall;
+  const canCall = elapsed >= 2000;
+  const status = document.getElementById('tokenStatus');
+  status.textContent = canCall ? '✓ Ready' : `⏳ Wait ${Math.ceil((2000 - elapsed) / 1000)}s`;
+  status.className = 'token-status' + (canCall ? '' : ' waiting');
+}
+
+// Chart
+function drawChart() {
+  const canvas = document.getElementById('progressChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 200 * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = canvas.offsetWidth;
+  const h = 200;
+  const pad = { top: 20, right: 20, bottom: 30, left: 40 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (chartH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+  }
+
+  // Data
+  const data = [];
+  for (let d = 1; d <= 60; d++) {
+    const plan = studyPlan.find(p => p.day === d);
+    const studied = completedDays.has(d);
+    data.push({ day: d, words: plan?.words?.length || 0, studied });
+  }
+
+  // Line
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((p, i) => {
+    const x = pad.left + (chartW / (data.length - 1)) * i;
+    const y = pad.top + chartH - (p.words / 85) * chartH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Points
+  data.forEach((p, i) => {
+    const x = pad.left + (chartW / (data.length - 1)) * i;
+    const y = pad.top + chartH - (p.words / 85) * chartH;
+    ctx.fillStyle = p.studied ? '#3fb950' : '#58a6ff';
+    ctx.beginPath();
+    ctx.arc(x, y, p.studied ? 5 : 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Labels
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < data.length; i += 10) {
+    const x = pad.left + (chartW / (data.length - 1)) * i;
+    ctx.fillText('D' + data[i].day, x, h - 8);
+  }
+}
+
+// Init
+let wordsStudied = 0;
+loadData();
+loadNotes();
+updateTokenStatus();
+setInterval(updateTokenStatus, 1000);
+
+// Track word views
+const observer = new MutationObserver(() => {
+  const visibleWords = document.querySelectorAll('.word-card');
+  wordsStudied += visibleWords.length;
+});
+observer.observe(document.getElementById('content'), { childList: true, subtree: true });
+</script>
+</body>
+</html>

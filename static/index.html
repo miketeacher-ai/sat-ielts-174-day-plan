@@ -624,6 +624,20 @@ canvas {
 .timer-fill{height:100%;width:100%;background:var(--accent);border-radius:6px;}
 .search-hit-actions{display:flex;gap:6px;margin-top:6px;align-items:center;}
 
+.focus-launch{margin-bottom:12px;}
+.focus-wrap{max-width:780px;margin:0 auto;}
+.focus-card{perspective:1200px;min-height:430px;cursor:pointer;margin:6px 0 4px;}
+.focus-inner{position:relative;width:100%;min-height:430px;transition:transform .5s;transform-style:preserve-3d;}
+.focus-card.flipped .focus-inner{transform:rotateY(180deg);}
+.focus-front,.focus-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:var(--radius);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:38px 30px;text-align:center;}
+.focus-front{background:linear-gradient(135deg,var(--card),var(--card-hover));border:1px solid var(--border);}
+.focus-back{background:linear-gradient(135deg,rgba(66,95,230,.12),rgba(129,82,233,.12));border:2px solid var(--accent);transform:rotateY(180deg);overflow-y:auto;}
+.focus-word{font-size:2.6rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;line-height:1.15;}
+.focus-def{font-size:1.35rem;font-weight:700;line-height:1.5;margin-bottom:12px;}
+.focus-hint{margin-top:20px;font-size:.78rem;color:var(--muted);}
+.focus-nav{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap;}
+.focus-keys{text-align:center;font-size:.75rem;color:var(--muted);margin-top:10px;}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -805,7 +819,8 @@ async function toggleMastered(word, btn) {
   updateHeader();
   renderNav();
   renderDashboard();
-  if (!btn) renderDay(currentDay);
+  if (focus && document.querySelector('#content .focus-card')) renderFocus();
+  else if (!btn) renderDay(currentDay);
 }
 
 async function masterFromReview(w) {
@@ -817,6 +832,81 @@ async function masterFromReview(w) {
   renderDashboard();
   reviewView();
 }
+
+let focus = null;
+
+function startFocus(shuffled) {
+  const plan = studyPlan.find(p => p.day === currentDay);
+  if (!plan || !plan.words.length) return;
+  stopTimer();
+  const words = [...plan.words];
+  if (shuffled) shuffle(words);
+  focus = { words, i: 0, flipped: false, shuffled: !!shuffled };
+  renderFocus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderFocus() {
+  if (!focus) return;
+  const content = document.getElementById('content');
+  const w = focus.words[focus.i];
+  content.innerHTML = `<div class="card focus-wrap">
+    <div class="quiz-top"><span>Day ${currentDay} · Card ${focus.i + 1} / ${focus.words.length}</span>
+    <span><button class="quiz-btn" style="padding:4px 10px;" onclick="startFocus(${focus.shuffled ? 'false' : 'true'})">${focus.shuffled ? 'Unshuffle' : 'Shuffle'}</button>
+    <button class="quiz-btn" style="padding:4px 10px;" onclick="focus=null;renderDay(currentDay)">✕ Grid</button></span></div>
+    <div class="focus-card${focus.flipped ? ' flipped' : ''}" onclick="focus.flipped=!focus.flipped;this.classList.toggle('flipped')">
+      <div class="focus-inner">
+        <div class="focus-front">
+          <div class="focus-word">${esc(w.word)}</div>
+          <div class="word-pos">${esc(w.part_of_speech)}</div>
+          <div class="diff-pill"><span class="word-diff diff-${w.difficulty}"></span>${levelLabel(w.difficulty)}</div>
+          <div class="focus-hint">Tap to reveal · Space flips</div>
+        </div>
+        <div class="focus-back">
+          <div class="focus-def">${esc(w.definition)}</div>
+          <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + esc(w.synonyms.join(', ')) : 'No close synonym — see definition'}</div>
+          <div class="word-example">${esc(w.example)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="focus-nav">
+      <button class="quiz-btn" onclick="focusStep(-1)">← Prev</button>
+      <button class="speak-btn" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Pronounce" onclick="speak('${esc(w.word)}')">🔊</button>
+      <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Mark mastered" onclick="toggleMastered('${esc(w.word)}',this)">★</button>
+      <button class="complete-btn" style="margin-top:0;" onclick="focusMasterNext()">Got it →</button>
+      <button class="quiz-btn" onclick="focusStep(1)">Next →</button>
+    </div>
+    <div class="focus-keys">← → navigate · Space flip · M mastered · Esc grid</div>
+  </div>`;
+}
+
+function focusStep(d) {
+  if (!focus) return;
+  focus.i = (focus.i + d + focus.words.length) % focus.words.length;
+  focus.flipped = false;
+  renderFocus();
+}
+
+async function focusMasterNext() {
+  if (!focus) return;
+  const w = focus.words[focus.i].word;
+  if (!masteredWords.has(w)) { masteredWords.add(w); wrongWords.delete(w); }
+  await saveProgress();
+  updateHeader();
+  renderNav();
+  renderDashboard();
+  focusStep(1);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!focus || !document.querySelector('#content .focus-card')) { focus = null; return; }
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  if (e.key === 'ArrowRight') focusStep(1);
+  else if (e.key === 'ArrowLeft') focusStep(-1);
+  else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); focus.flipped = !focus.flipped; renderFocus(); }
+  else if (e.key === 'm' || e.key === 'M') toggleMastered(focus.words[focus.i].word, null);
+  else if (e.key === 'Escape') { focus = null; renderDay(currentDay); }
+});
 
 let quiz = null;
 
@@ -1053,6 +1143,7 @@ function selectDay(d) {
 
 // Render Day
 function renderDay(day) {
+  focus = null;
   const content = document.getElementById('content');
   const plan = studyPlan.find(p => p.day === day);
   if (!plan) {
@@ -1114,6 +1205,7 @@ function renderDay(day) {
         <span class="card-title">📖 Words (${plan.words.length})</span>
         <span class="badge badge-${plan.words[0]?.category?.toLowerCase() || 'sat'}">${plan.words[0]?.category || 'Both'}</span>
       </div>
+      <div class="focus-launch"><button class="quiz-btn" onclick="startFocus()">🎯 Focus mode: one big card at a time</button></div>
       <div class="words-grid">${wordCards}</div>
     </div>
 

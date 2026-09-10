@@ -165,12 +165,15 @@ random.shuffle(ielts_rest)
 ielts_only = ielts_head + ielts_rest
 
 QUOTA = {'Both': 1500, 'SAT': 2200, 'IELTS': 1300}
+MIN_DIFFICULTY = 3  # B1+ only: drop difficulty 1-2 (A1-B1 core vocabulary)
 WORDS = []
 def take(words, cat, n):
     out = []
     for w in words:
         if len(out) >= n:
             break
+        if difficulty(w) < MIN_DIFFICULTY:
+            continue
         src = sat_src.get(w, {})
         out.append((w, src, cat))
     return out
@@ -182,6 +185,20 @@ short = 5000 - len(picks)
 if short > 0:
     rest = [w for w in list(sat_only[QUOTA['SAT']:]) + list(ielts_only[QUOTA['IELTS']:]) + list(both[QUOTA['Both']:]) if w not in used]
     for w in rest[:short]:
+        if difficulty(w) < MIN_DIFFICULTY:
+            continue
+        src = sat_src.get(w, {})
+        cat = 'Both' if w in ielts_src and w in sat_src else ('IELTS' if w in ielts_src else 'SAT')
+        picks.append((w, src, cat))
+# top-up to 5000 from anything left (B1+ only)
+if len(picks) < 5000:
+    seen = {w for w, _, _ in picks} | used
+    for w in list(sat_only) + list(ielts_only) + list(both):
+        if len(picks) >= 5000:
+            break
+        if w in seen or difficulty(w) < MIN_DIFFICULTY:
+            continue
+        seen.add(w)
         src = sat_src.get(w, {})
         cat = 'Both' if w in ielts_src and w in sat_src else ('IELTS' if w in ielts_src else 'SAT')
         picks.append((w, src, cat))

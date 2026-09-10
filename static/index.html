@@ -12,11 +12,14 @@
   --card-hover: #eef1fd;
   --border: #e2e7f5;
   --fg: #241d1f;
-  --muted: #758696;
+  --muted: #5E6D88;
   --accent: #425fe6;
   --accent-soft: #5774fc;
   --accent-pale: #c7d1fe;
+  --accent-ink: #3449B8;
   --accent2: #1faa6e;
+  --success-ink: #0F7A4D;
+  --purple-ink: #5B3FD1;
   --warning: #d29922;
   --cta: #fed502;
   --danger: #e5484d;
@@ -24,6 +27,27 @@
   --radius: 16px;
   --shadow: 0 4px 20px rgba(35,31,32,0.08);
 }
+[data-theme="dark"] {
+  --bg: #14162A;
+  --card: #1F2340;
+  --card-hover: #282E4E;
+  --border: #343B63;
+  --fg: #F2F3FA;
+  --muted: #9AA3C7;
+  --accent: #7C93FF;
+  --accent-soft: #93A6FF;
+  --accent-pale: #3A4470;
+  --accent2: #2FD08C;
+  --warning: #E5A93D;
+  --cta: #FED502;
+  --danger: #FF6B70;
+  --purple: #A583FF;
+  --shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .badge-sat { color: var(--accent); }
+[data-theme="dark"] .badge-ielts { color: var(--accent2); }
+[data-theme="dark"] .badge-both { color: var(--purple); }
+[data-theme="dark"] .star-btn.on { color: var(--cta); }
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -173,9 +197,9 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.badge-sat { background: rgba(66,95,230,0.15); color: var(--accent); }
-.badge-ielts { background: rgba(31,170,110,0.15); color: var(--accent2); }
-.badge-both { background: rgba(129,82,233,0.15); color: var(--purple); }
+.badge-sat { background: rgba(66,95,230,0.15); color: var(--accent-ink); }
+.badge-ielts { background: rgba(31,170,110,0.15); color: var(--success-ink); }
+.badge-both { background: rgba(129,82,233,0.15); color: var(--purple-ink); }
 
 /* Word Flip Cards */
 .words-grid {
@@ -671,6 +695,7 @@ canvas {
 
 <div class="header">
   <h1>📚 SAT & IELTS 174-Day Plan</h1>
+  <button id="themeBtn" class="quiz-btn" style="padding:6px 12px;" title="Toggle dark mode" onclick="toggleTheme()">🌙</button>
   <div class="header-stats">
     <div class="stat">
       <div class="stat-value" id="totalWords">5000</div>
@@ -1462,6 +1487,23 @@ function updateHeader() {
   document.getElementById('masteredCount').textContent = masteredWords.size;
 }
 
+function applyTheme(t) {
+  if (t === 'dark') document.documentElement.dataset.theme = 'dark';
+  else document.documentElement.removeAttribute('data-theme');
+  const b = document.getElementById('themeBtn');
+  if (b) b.textContent = t === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('study-theme', next); } catch(e) {}
+  applyTheme(next);
+  if (typeof drawChart === 'function') drawChart();
+}
+try {
+  const q = new URLSearchParams(location.search).get('theme');
+  applyTheme(q === 'dark' || q === 'light' ? q : (localStorage.getItem('study-theme') || 'light'));
+} catch(e) {}
+
 // Token Status
 let lastAiCall = 0;
 function updateTokenStatus() {
@@ -1488,11 +1530,17 @@ function drawChart() {
   const chartW = w - pad.left - pad.right;
   const chartH = h - pad.top - pad.bottom;
 
-  ctx.fillStyle = '#f3f5fd';
+  const darkMode = document.documentElement.dataset.theme === 'dark';
+  const C_BG = darkMode ? '#1F2340' : '#f3f5fd';
+  const C_GRID = darkMode ? '#343B63' : '#E2E7F5';
+  const C_ACC = darkMode ? '#7C93FF' : '#425FE6';
+  const C_OK = darkMode ? '#2FD08C' : '#1FAA6E';
+  const C_MUT = darkMode ? '#9AA3C7' : '#5E6D88';
+  ctx.fillStyle = C_BG;
   ctx.fillRect(0, 0, w, h);
 
   // Grid
-  ctx.strokeStyle = '#21262d';
+  ctx.strokeStyle = C_GRID;
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = pad.top + (chartH / 4) * i;
@@ -1511,7 +1559,7 @@ function drawChart() {
   }
 
   // Line
-  ctx.strokeStyle = '#425fe6';
+  ctx.strokeStyle = C_ACC;
   ctx.lineWidth = 2;
   ctx.beginPath();
   data.forEach((p, i) => {
@@ -1526,14 +1574,14 @@ function drawChart() {
   data.forEach((p, i) => {
     const x = pad.left + (chartW / (data.length - 1)) * i;
     const y = pad.top + chartH - (p.words / 35) * chartH;
-    ctx.fillStyle = p.studied ? '#1faa6e' : '#425fe6';
+    ctx.fillStyle = p.studied ? C_OK : C_ACC;
     ctx.beginPath();
     ctx.arc(x, y, p.studied ? 5 : 3, 0, Math.PI * 2);
     ctx.fill();
   });
 
   // Labels
-  ctx.fillStyle = '#758696';
+  ctx.fillStyle = C_MUT;
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   const step = Math.max(1, Math.ceil(data.length / 8));

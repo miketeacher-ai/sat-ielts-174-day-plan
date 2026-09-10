@@ -1,9 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/*.py": { "includeFiles": "data/**" },
-    "api/day/*.py": { "includeFiles": "data/**" },
-    "api/exercise/*.py": { "includeFiles": "data/**" }
+    "api/*.py": { "includeFiles": "data/**, static/index.html" }
   },
-  "rewrites": [{ "source": "/", "destination": "/static/index.html" }]
+  "rewrites": [
+    { "source": "/", "destination": "/api/rootfn" },
+    { "source": "/api/day/:day", "destination": "/api/dayfn?day=:day" },
+    { "source": "/api/exercise/:day", "destination": "/api/exfn?day=:day" }
+  ]
 }

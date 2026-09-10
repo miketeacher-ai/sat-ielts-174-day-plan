@@ -62,7 +62,7 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 900' preserveAspectRatio='xMidYMid slice'%3E%3Cpath d='M0,0H1440V96C1210,156 950,36 710,92C470,148 230,64 0,116Z' fill='%23425FE6' fill-opacity='0.12'/%3E%3Cpath d='M0,0H1440V150C1190,210 930,100 690,150C450,200 210,120 0,170Z' fill='%238152E9' fill-opacity='0.09'/%3E%3Cpath d='M0,900V764C240,704 480,812 720,762C960,712 1200,802 1440,752V900Z' fill='%23FED502' fill-opacity='0.09'/%3E%3Cpath d='M0,900V824C260,774 500,852 760,812C1020,772 1240,842 1440,802V900Z' fill='%231FAA6E' fill-opacity='0.07'/%3E%3C/svg%3E") center top / cover no-repeat;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 900' preserveAspectRatio='xMidYMid slice'%3E%3Cpath d='M0,0H1440V96C1210,156 950,36 710,92C470,148 230,64 0,116Z' fill='%238152E9' fill-opacity='0.13'/%3E%3Cpath d='M0,0H1440V150C1190,210 930,100 690,150C450,200 210,120 0,170Z' fill='%23425FE6' fill-opacity='0.11'/%3E%3Cpath d='M0,900V764C240,704 480,812 720,762C960,712 1200,802 1440,752V900Z' fill='%2314B8A6' fill-opacity='0.12'/%3E%3Cpath d='M0,900V824C260,774 500,852 760,812C1020,772 1240,842 1440,802V900Z' fill='%23A9DD9B' fill-opacity='0.20'/%3E%3C/svg%3E") center top / cover no-repeat;
 }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -131,31 +131,34 @@ body {
 .nav-day {
   flex-shrink: 0;
   padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
+  border-radius: 10px;
+  border: 2px solid #C9D4F8;
+  background: #FFFFFF;
+  color: var(--fg);
   cursor: pointer;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 700;
   transition: all 0.2s;
   min-width: 48px;
   text-align: center;
 }
 .nav-day:hover {
   background: var(--card-hover);
-  color: var(--fg);
+  color: var(--accent);
   border-color: var(--accent);
 }
 .nav-day.active {
-  background: var(--accent);
-  color: var(--bg);
+  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+  color: #FFFFFF;
   border-color: var(--accent);
-  font-weight: 700;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(66,95,230,0.4);
 }
 .nav-day.completed {
   border-color: var(--accent2);
-  color: var(--accent2);
+  border-width: 2px;
+  color: var(--success-ink);
+  background: rgba(31,170,110,0.08);
 }
 .nav-day.completed::after {
   content: '✓';
@@ -253,19 +256,47 @@ body {
   text-align: center;
 }
 .word-card-front {
-  background: linear-gradient(165deg, #FFFFFF 55%, #E8EDFF 130%);
-  border: 1px solid rgba(66,95,230,0.35);
+  background: linear-gradient(165deg, #262C55 55%, #1B2040 130%);
+  border: 1px solid rgba(124,147,255,0.45);
   transition: border-color .2s, box-shadow .2s;
 }
+.word-card-front .word-text { color: #F2F3FA; }
+.word-card-front .word-pos { color: #A9B4D8; }
+.word-card-front .word-hint { color: #A9B4D8; }
+.word-card-front .diff-pill { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.16); color: #C9D4F8; }
 .word-card:hover .word-card-front {
   border-color: var(--accent);
   box-shadow: var(--shadow);
 }
 .word-card-back {
-  background: linear-gradient(165deg, #F4F6FF 30%, #E9E4FF 125%);
+  background: linear-gradient(165deg, #2A3160 30%, #2E2358 125%);
   border: 1px solid var(--accent);
   transform: rotateY(180deg);
   overflow-y: auto;
+}
+.word-card-back .word-def { color: #F2F3FA; }
+.word-card-back .word-syn { color: #9DB1FF; }
+.word-card-back .word-example { color: #B9C2E2; }
+.word-meta-rows {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+.word-meta-rows span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #C9D4F8;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  padding: 3px 9px;
+  border-radius: 12px;
+}
+.word-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 6px;
 }
 .word-text {
   font-size: 1.35rem;
@@ -689,13 +720,23 @@ canvas {
 .focus-card.enter-right .focus-inner{animation:cardInRight .3s ease-out;}
 .focus-card.enter-left .focus-inner{animation:cardInLeft .3s ease-out;}
 .focus-front,.focus-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:var(--radius);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:30px 26px;text-align:center;}
-.focus-front{background:linear-gradient(165deg,#FFFFFF 55%,#E8EDFF 130%);border:1px solid rgba(66,95,230,0.35);}
-.focus-back{background:linear-gradient(165deg,#F1F4FF 25%,#E6E1FF 125%);border:2px solid var(--accent);transform:rotateY(180deg);overflow-y:auto;}
+.focus-front{background:linear-gradient(165deg,#262C55 55%,#1B2040 130%);border:1px solid rgba(124,147,255,0.45);}
+.focus-back{background:linear-gradient(165deg,#2A3160 25%,#2E2358 125%);border:2px solid var(--accent);transform:rotateY(180deg);overflow-y:auto;}
+.focus-front .focus-word{color:#F2F3FA;}
+.focus-front .word-pos{color:#A9B4D8;}
+.focus-front .word-hint{color:#A9B4D8;}
+.focus-front .diff-pill{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.16);color:#C9D4F8;}
+.focus-back .focus-def{color:#F2F3FA;}
+.focus-back .word-syn{color:#9DB1FF;}
+.focus-back .word-example{color:#B9C2E2;}
 .focus-word{font-size:2.1rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;line-height:1.15;}
 .focus-def{font-size:1.2rem;font-weight:700;line-height:1.5;margin-bottom:12px;}
 .focus-hint{margin-top:20px;font-size:.78rem;color:var(--muted);}
 .focus-nav{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap;}
 .focus-keys{text-align:center;font-size:.75rem;color:var(--muted);margin-top:10px;}
+
+.pass-banner{margin:10px 0;padding:10px 14px;border-radius:10px;background:rgba(31,170,110,.12);border:1px solid var(--accent2);color:var(--success-ink);font-weight:700;font-size:.9rem;}
+.fail-banner{margin:10px 0;padding:10px 14px;border-radius:10px;background:rgba(229,72,77,.08);border:1px solid var(--danger);color:var(--danger);font-weight:700;font-size:.9rem;}
 
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
@@ -924,6 +965,65 @@ function startFocus(shuffled) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function renderLock() {
+  const content = document.getElementById('dayPager');
+  if (!content) return;
+  content.innerHTML = `<div class="card focus-wrap">
+    <div class="quiz-top"><span>Day ${currentDay} · Checkpoint</span></div>
+    <div class="focus-card"><div class="focus-inner"><div class="focus-front" style="position:static;transform:none;min-height:300px;">
+      <div class="focus-word">🔒</div>
+      <div class="focus-def">Cards 6+ are locked</div>
+      <div class="word-example">Pass a 3-question checkpoint on the first 5 words to continue.</div>
+      <div class="quiz-actions" style="justify-content:center;">
+        <button class="quiz-btn" onclick="focusStep(-1)">← Back to cards</button>
+        <button class="btn-primary btn" onclick="startCheckpointQuiz()">Take checkpoint quiz</button>
+      </div>
+    </div></div></div>
+  </div>`;
+}
+
+function dayWords5() {
+  const plan = studyPlan.find(p => p.day === currentDay);
+  return plan ? plan.words.slice(0, 5).map(w => w.word) : [];
+}
+
+function startCheckpointQuiz() {
+  const words = dayWords5();
+  if (!words.length) return;
+  quiz.ret = null;
+  startQuiz(3, words, false, {
+    passNeed: 2,
+    onDone: (ok) => {
+      if (ok) { gates[currentDay] = gates[currentDay] || {}; gates[currentDay].c = 1; saveProgress(); }
+      quiz.ret = ok ? 5 : 0;
+    }
+  });
+}
+
+function startFinalQuiz() {
+  const plan = studyPlan.find(p => p.day === currentDay);
+  if (!plan) return;
+  startQuiz(5, plan.words.map(w => w.word), false, {
+    passNeed: 3,
+    onDone: (ok) => {
+      if (ok) { gates[currentDay] = gates[currentDay] || {}; gates[currentDay].f = 1; saveProgress(); renderDay(currentDay); }
+      quiz.ret = null;
+    }
+  });
+}
+
+function quizBack() {
+  const ret = quiz ? quiz.ret : null;
+  quiz = null;
+  stopTimer();
+  renderDay(currentDay);
+  if (ret != null && focus) {
+    focus.i = Math.min(ret, focus.words.length - 1);
+    focus.flipped = false;
+    renderFocus();
+  }
+}
+
 function initDayPager() {
   const plan = studyPlan.find(p => p.day === currentDay);
   if (!plan || !plan.words.length) return;
@@ -935,6 +1035,7 @@ function renderFocus() {
   if (!focus) return;
   const content = document.getElementById(focus.target === 'day' ? 'dayPager' : 'content');
   if (!content) return;
+  if (focus.target === 'day' && focus.i >= 5 && !gateOk(currentDay, 'c')) return renderLock();
   const w = focus.words[focus.i];
   content.innerHTML = `<div class="card focus-wrap">
     <div class="quiz-top"><span>Day ${currentDay} · Card ${focus.i + 1} / ${focus.words.length}</span>
@@ -948,12 +1049,14 @@ function renderFocus() {
           <div class="focus-word">${esc(w.word)}</div>
           <div class="word-pos">${esc(w.part_of_speech)}</div>
           <div class="diff-pill"><span class="word-diff diff-${w.difficulty}"></span>${levelLabel(w.difficulty)}</div>
+          <div class="word-hint">💡 ${w.part_of_speech} · ${w.word.length} letters · starts with “${w.word[0]}”</div>
           <div class="focus-hint">Tap to reveal · Space flips</div>
         </div>
         <div class="focus-back">
           <div class="focus-def">${esc(w.definition)}</div>
           <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + esc(w.synonyms.join(', ')) : 'No close synonym — see definition'}</div>
-          <div class="word-example">${esc(w.example)}</div>
+          <div class="word-example">“${esc(w.example)}”</div>
+          <div class="word-meta-rows"><span>📚 ${esc(w.theme || 'General')}</span><span>🎯 ${esc(w.category || 'Both')}</span><span>📅 Day ${w.day || ''}</span></div>
         </div>
       </div>
     </div>
@@ -962,6 +1065,7 @@ function renderFocus() {
       <button class="speak-btn" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Pronounce" onclick="speak('${esc(w.word)}')">🔊</button>
       <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Mark mastered" onclick="toggleMastered('${esc(w.word)}',this)">★</button>
       <button class="complete-btn" style="margin-top:0;" onclick="focusMasterNext()">Got it →</button>
+      ${(focus.target === 'day' && focus.i === focus.words.length - 1 && !gateOk(currentDay, 'f')) ? `<button class="complete-btn" style="margin-top:0;" onclick="startFinalQuiz()">🏁 Final quiz</button>` : ''}
       <button class="quiz-btn" onclick="focusStep(1)">Next →</button>
     </div>
     <div class="focus-keys">← → navigate · Space flip · M mastered · Esc grid</div>
@@ -997,6 +1101,9 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') { focus = null; renderDay(currentDay); }
 });
 
+let gates = {};
+function gateOk(day, kind) { return !!(gates[day] && gates[day][kind]); }
+
 let quiz = null;
 
 function shuffle(a) {
@@ -1007,7 +1114,7 @@ function shuffle(a) {
   return a;
 }
 
-function startQuiz(n = 10, onlyWords = null, timed = false) {
+function startQuiz(n = 10, onlyWords = null, timed = false, extra = null) {
   let pool = [];
   for (const p of studyPlan) for (const w of (p.words || [])) pool.push(w);
   if (onlyWords && onlyWords.length) {
@@ -1026,7 +1133,7 @@ function startQuiz(n = 10, onlyWords = null, timed = false) {
                               : ['definition_match', 'definition_match', 'fill_in_blank'];
     qs.push(makeQuizQ(w, pool, types[Math.floor(Math.random() * types.length)]));
   }
-  quiz = { qs, i: 0, score: 0, log: [], timed, timer: null };
+  quiz = Object.assign({ qs, i: 0, score: 0, log: [], timed, timer: null, ret: null, passNeed: 0, onDone: null }, extra || {});
   window.scrollTo({ top: 0, behavior: 'smooth' });
   renderQuiz();
 }
@@ -1146,6 +1253,8 @@ async function nextQuiz() {
   quizzesTaken++;
   if (quiz.timed) { if (quiz.score > bestTimed) bestTimed = quiz.score; }
   else if (quiz.score > bestQuiz) bestQuiz = quiz.score;
+  const passed = !quiz.passNeed || quiz.score >= quiz.passNeed;
+  if (typeof quiz.onDone === 'function') { try { quiz.onDone(passed); } catch(e) {} }
   await saveProgress();
   renderDashboard();
   const content = document.getElementById('content');
@@ -1153,10 +1262,13 @@ async function nextQuiz() {
   content.innerHTML = `<div class="card">
     <div class="card-header"><span class="card-title">⚡ Quiz results</span></div>
     <div class="tile-num">${quiz.score} / ${quiz.qs.length} (${pct}%)</div>
+    ${quiz.passNeed ? (passed
+      ? `<div class="pass-banner">🔓 Unlocked — nice work!</div>`
+      : `<div class="fail-banner">🔒 Need ${quiz.passNeed}/${quiz.qs.length} to unlock — retry below</div>`) : ''}
     <div class="dash-sub">${quiz.timed ? `Best timed: ${bestTimed}` : `Best: ${bestQuiz}`}/${quiz.qs.length} · Quizzes taken: ${quizzesTaken}</div>
     <div class="quiz-actions">
       <button class="btn-primary btn" onclick="startQuiz()">Retry</button>
-      <button class="quiz-btn" onclick="renderDay(currentDay)">Back to Day ${currentDay}</button>
+      <button class="quiz-btn" onclick="quizBack()">Back to Day ${currentDay}</button>
     </div>
     <div class="quiz-review">${quiz.log.map(e => {
       const _d = (wordObj[e.q.word] || {}).day;
@@ -1259,12 +1371,14 @@ function renderDay(day) {
             <button class="speak-btn" title="Pronounce" onclick="event.stopPropagation();speak('${w.word}')">🔊</button>
             <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" title="Mark mastered" onclick="event.stopPropagation();toggleMastered('${w.word}',this)">★</button>
           </div>
+          <div class="word-hint">💡 ${w.part_of_speech} · ${w.word.length} letters · starts with “${w.word[0]}”</div>
           <div class="diff-pill"><span class="word-diff diff-${w.difficulty}"></span>${levelLabel(w.difficulty)}</div>
         </div>
         <div class="word-card-back">
           <div class="word-def">${w.definition}</div>
           <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + w.synonyms.join(', ') : 'No close synonym — see definition'}</div>
-          <div class="word-example">${w.example}</div>
+          <div class="word-example">“${w.example}”</div>
+          <div class="word-meta-rows"><span>📚 ${w.theme || 'General'}</span><span>🎯 ${w.category || 'Both'}</span><span>📅 Day ${w.day || ''}</span></div>
         </div>
       </div>
     </div>
@@ -1295,7 +1409,9 @@ function renderDay(day) {
       <div class="progress-bar-wrap">
         <div class="progress-bar-fill" style="width: ${((plan.words.length) / 35 * 100).toFixed(1)}%"></div>
       </div>
-      <button class="complete-btn${completedDays.has(plan.day) ? ' done' : ''}" onclick="toggleComplete(${plan.day})">${completedDays.has(plan.day) ? '✓ Day complete — undo' : 'Mark day complete'}</button>
+      ${(!completedDays.has(plan.day) && plan.words.length && !gateOk(plan.day, 'f'))
+        ? `<button class="complete-btn" onclick="startFinalQuiz()">🔒 Pass the final quiz to complete</button>`
+        : `<button class="complete-btn${completedDays.has(plan.day) ? ' done' : ''}" onclick="toggleComplete(${plan.day})">${completedDays.has(plan.day) ? '✓ Day complete — undo' : 'Mark day complete'}</button>`}
     </div>
 
     <div class="card">
@@ -1415,6 +1531,7 @@ async function loadProgress() {
     bestQuiz = data.best_quiz || 0;
     bestTimed = data.best_timed || 0;
     quizzesTaken = data.quizzes_taken || 0;
+    gates = data.gates || {};
     wrongWords = new Set((data.wrong_words || []).slice(-200));
     if (data.last_visit !== today) {
       streak = (data.last_visit === yest) ? streak + 1 : 1;
@@ -1437,6 +1554,7 @@ async function saveProgress() {
         best_timed: bestTimed,
         quizzes_taken: quizzesTaken,
         wrong_words: [...wrongWords].slice(-200),
+        gates,
         last_visit: new Date().toISOString().slice(0, 10)
       })
     });

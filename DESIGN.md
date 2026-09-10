@@ -16,6 +16,9 @@ colors:
   cta: "#FED502"
   danger: "#E5484D"
   purple: "#8152E9"
+  blue: "#425FE6"
+  teal: "#14B8A6"
+  pistachio: "#A9DD9B"
   primary-ink: "#3449B8"
   success-ink: "#0F7A4D"
   purple-ink: "#5B3FD1"
@@ -130,8 +133,8 @@ default theme; depth comes from one soft shadow, never borders alone.
 - **Primary-soft (#5774FC):** Gradient partner for primary buttons.
 - **Primary-pale (#C7D1FE):** Tint fills behind active cards and SAT badges.
 - **Canvas (#F3F5FD):** Page base under a fixed full-bleed SVG of four
-  Ellii-style wave bands — indigo and purple rolling down from the top,
-  yellow and green rising from the bottom, all in token hues.
+  Ellii-style wave bands — purple and blue rolling down from the top,
+  teal and pistachio rising from the bottom, all in token hues.
 - **Ink (#241D1F):** Warm near-black for all body text.
 - **Muted (#5E6D88):** Secondary text, labels, placeholders. Darkened
   from sketch value until it passes AA on white (5.2:1).

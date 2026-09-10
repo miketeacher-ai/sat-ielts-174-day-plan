@@ -180,13 +180,15 @@ body {
 /* Word Flip Cards */
 .words-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
 }
 .word-card {
   perspective: 1000px;
-  height: 120px;
+  height: 190px;
   cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: 250px 190px;
 }
 .word-card-inner {
   position: relative;
@@ -208,51 +210,80 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 12px;
+  padding: 20px 16px;
   text-align: center;
 }
 .word-card-front {
   background: linear-gradient(135deg, var(--card), var(--card-hover));
   border: 1px solid var(--border);
+  transition: border-color .2s, box-shadow .2s;
+}
+.word-card:hover .word-card-front {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
 }
 .word-card-back {
   background: linear-gradient(135deg, rgba(66,95,230,0.1), rgba(129,82,233,0.1));
   border: 1px solid var(--accent);
   transform: rotateY(180deg);
+  overflow-y: auto;
 }
 .word-text {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.55rem;
+  font-weight: 800;
   color: var(--fg);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
 }
 .word-pos {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
 }
+.card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.diff-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+.diff-pill .word-diff { margin-top: 0; }
 .word-def {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--fg);
-  line-height: 1.4;
+  line-height: 1.5;
+  font-weight: 600;
 }
 .word-syn {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--accent);
-  margin-top: 4px;
+  margin-top: 8px;
+  line-height: 1.4;
 }
 .word-example {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--muted);
   font-style: italic;
-  margin-top: 8px;
-  line-height: 1.3;
+  margin-top: 10px;
+  line-height: 1.45;
 }
 .word-diff {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   margin-top: 6px;
 }
@@ -546,7 +577,7 @@ canvas {
 .search-wrap{max-width:1200px;margin:0 auto;padding:12px 24px 0;}
 .search-wrap input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--fg);font-size:.9rem;outline:none;}
 .search-wrap input:focus{border-color:var(--accent);}
-.speak-btn{background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;margin-top:4px;border-radius:6px;}
+.speak-btn{background:none;border:none;cursor:pointer;font-size:1.25rem;padding:8px;min-width:42px;min-height:42px;margin-top:4px;border-radius:8px;}
 .speak-btn:hover{background:rgba(66,95,230,.15);}
 .complete-btn{margin-top:12px;padding:10px 20px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-weight:600;cursor:pointer;font-size:.85rem;}
 .complete-btn.done{background:rgba(31,170,110,.15);border-color:var(--accent2);color:var(--accent2);}
@@ -578,7 +609,7 @@ canvas {
 .bar-fill.green{background:var(--accent2);}
 .bar-fill.purple{background:var(--purple);}
 .streak-pill{font-size:1.5rem;font-weight:800;}
-.star-btn{background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;margin-top:4px;border-radius:6px;color:var(--muted);}
+.star-btn{background:none;border:none;cursor:pointer;font-size:1.25rem;padding:8px;min-width:42px;min-height:42px;margin-top:4px;border-radius:8px;color:var(--muted);}
 .star-btn.on{color:#e6a700;}
 .star-btn:hover{background:rgba(66,95,230,.15);}
 
@@ -629,7 +660,7 @@ canvas {
 <div class="nav" id="dayNav"></div>
 
 <div class="search-wrap">
-  <input type="text" id="globalSearch" placeholder="🔍 Search all 5000 words..." autocomplete="off" oninput="runSearch(this.value)">
+  <input type="text" id="globalSearch" placeholder="🔍 Search all 5000 words..." autocomplete="off" oninput="debouncedSearch(this.value)">
 </div>
 
 <section class="dash-wrap"><div class="dash" id="dashboard"></div></section>
@@ -762,14 +793,19 @@ function renderDashboard() {
     </div>`;
 }
 
-async function toggleMastered(word) {
+function levelLabel(d) {
+  return d <= 3 ? 'B1 · Intermediate' : (d === 4 ? 'B2 · Upper-Int' : 'C1 · Advanced');
+}
+
+async function toggleMastered(word, btn) {
   if (masteredWords.has(word)) masteredWords.delete(word);
   else { masteredWords.add(word); wrongWords.delete(word); }
+  if (btn) btn.classList.toggle('on', masteredWords.has(word));
   await saveProgress();
   updateHeader();
   renderNav();
-  renderDay(currentDay);
   renderDashboard();
+  if (!btn) renderDay(currentDay);
 }
 
 async function masterFromReview(w) {
@@ -1030,9 +1066,11 @@ function renderDay(day) {
         <div class="word-card-front">
           <div class="word-text">${w.word}</div>
           <div class="word-pos">${w.part_of_speech}</div>
-          <button class="speak-btn" title="Pronounce" onclick="event.stopPropagation();speak('${w.word}')">🔊</button>
-          <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" title="Mark mastered" onclick="event.stopPropagation();toggleMastered('${w.word}')">★</button>
-          <div class="word-diff diff-${w.difficulty}"></div>
+          <div class="card-actions">
+            <button class="speak-btn" title="Pronounce" onclick="event.stopPropagation();speak('${w.word}')">🔊</button>
+            <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" title="Mark mastered" onclick="event.stopPropagation();toggleMastered('${w.word}',this)">★</button>
+          </div>
+          <div class="diff-pill"><span class="word-diff diff-${w.difficulty}"></span>${levelLabel(w.difficulty)}</div>
         </div>
         <div class="word-card-back">
           <div class="word-def">${w.definition}</div>
@@ -1235,6 +1273,12 @@ async function toggleComplete(day) {
   renderDay(currentDay);
   renderDashboard();
   if (typeof drawChart === 'function') drawChart();
+}
+
+let searchT = null;
+function debouncedSearch(v) {
+  clearTimeout(searchT);
+  searchT = setTimeout(() => runSearch(v), 150);
 }
 
 function runSearch(q) {

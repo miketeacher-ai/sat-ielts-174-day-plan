@@ -44,6 +44,13 @@
   --purple: #A583FF;
   --shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
+[data-theme="dark"] body {
+  background:
+    radial-gradient(1100px 480px at 8% -6%, rgba(124,147,255,0.16), transparent 60%),
+    radial-gradient(950px 460px at 96% 2%, rgba(165,131,255,0.13), transparent 60%),
+    radial-gradient(1000px 620px at 50% 112%, rgba(47,208,140,0.08), transparent 60%),
+    var(--bg);
+}
 [data-theme="dark"] .badge-sat { color: var(--accent); }
 [data-theme="dark"] .badge-ielts { color: var(--accent2); }
 [data-theme="dark"] .badge-both { color: var(--purple); }
@@ -51,7 +58,12 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(1100px 480px at 8% -6%, rgba(87,116,252,0.16), transparent 60%),
+    radial-gradient(950px 460px at 96% 2%, rgba(129,82,233,0.13), transparent 60%),
+    radial-gradient(1000px 620px at 50% 112%, rgba(31,170,110,0.09), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
   min-height: 100vh;
   overflow-x: hidden;

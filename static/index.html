@@ -7,19 +7,22 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 <style>
 :root {
-  --bg: #0d1117;
-  --card: #161b22;
-  --card-hover: #1c2129;
-  --border: #30363d;
-  --fg: #e6edf3;
-  --muted: #8b949e;
-  --accent: #58a6ff;
-  --accent2: #3fb950;
+  --bg: #f3f5fd;
+  --card: #ffffff;
+  --card-hover: #eef1fd;
+  --border: #e2e7f5;
+  --fg: #241d1f;
+  --muted: #758696;
+  --accent: #425fe6;
+  --accent-soft: #5774fc;
+  --accent-pale: #c7d1fe;
+  --accent2: #1faa6e;
   --warning: #d29922;
-  --danger: #f85149;
-  --purple: #bc8cff;
-  --radius: 12px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --cta: #fed502;
+  --danger: #e5484d;
+  --purple: #8152e9;
+  --radius: 16px;
+  --shadow: 0 4px 20px rgba(35,31,32,0.08);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
@@ -170,9 +173,9 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.badge-sat { background: rgba(88,166,255,0.15); color: var(--accent); }
-.badge-ielts { background: rgba(63,185,80,0.15); color: var(--accent2); }
-.badge-both { background: rgba(188,140,255,0.15); color: var(--purple); }
+.badge-sat { background: rgba(66,95,230,0.15); color: var(--accent); }
+.badge-ielts { background: rgba(31,170,110,0.15); color: var(--accent2); }
+.badge-both { background: rgba(129,82,233,0.15); color: var(--purple); }
 
 /* Word Flip Cards */
 .words-grid {
@@ -213,7 +216,7 @@ body {
   border: 1px solid var(--border);
 }
 .word-card-back {
-  background: linear-gradient(135deg, rgba(88,166,255,0.1), rgba(188,140,255,0.1));
+  background: linear-gradient(135deg, rgba(66,95,230,0.1), rgba(129,82,233,0.1));
   border: 1px solid var(--accent);
   transform: rotateY(180deg);
 }
@@ -261,8 +264,8 @@ body {
 
 /* Exercises */
 .exercise {
-  background: rgba(88,166,255,0.05);
-  border: 1px solid rgba(88,166,255,0.2);
+  background: rgba(66,95,230,0.05);
+  border: 1px solid rgba(66,95,230,0.2);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 16px;
@@ -302,24 +305,24 @@ body {
 }
 .exercise-option.selected {
   border-color: var(--accent);
-  background: rgba(88,166,255,0.15);
+  background: rgba(66,95,230,0.15);
   color: var(--accent);
   font-weight: 600;
 }
 .exercise-option.correct {
   border-color: var(--accent2);
-  background: rgba(63,185,80,0.15);
+  background: rgba(31,170,110,0.15);
   color: var(--accent2);
 }
 .exercise-option.incorrect {
   border-color: var(--danger);
-  background: rgba(248,81,73,0.15);
+  background: rgba(229,72,77,0.15);
   color: var(--danger);
 }
 .explanation {
   margin-top: 12px;
   padding: 12px;
-  background: rgba(63,185,80,0.1);
+  background: rgba(31,170,110,0.1);
   border-left: 3px solid var(--accent2);
   border-radius: 4px;
   font-size: 0.85rem;
@@ -382,7 +385,7 @@ body {
   border-radius: 4px;
 }
 .note-delete:hover {
-  background: rgba(248,81,73,0.15);
+  background: rgba(229,72,77,0.15);
 }
 .note-input {
   display: flex;
@@ -431,8 +434,8 @@ canvas {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: rgba(63,185,80,0.1);
-  border: 1px solid rgba(63,185,80,0.3);
+  background: rgba(31,170,110,0.1);
+  border: 1px solid rgba(31,170,110,0.3);
   border-radius: 8px;
   font-size: 0.8rem;
   color: var(--accent2);
@@ -544,12 +547,40 @@ canvas {
 .search-wrap input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--fg);font-size:.9rem;outline:none;}
 .search-wrap input:focus{border-color:var(--accent);}
 .speak-btn{background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;margin-top:4px;border-radius:6px;}
-.speak-btn:hover{background:rgba(88,166,255,.15);}
+.speak-btn:hover{background:rgba(66,95,230,.15);}
 .complete-btn{margin-top:12px;padding:10px 20px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-weight:600;cursor:pointer;font-size:.85rem;}
-.complete-btn.done{background:rgba(63,185,80,.15);border-color:var(--accent2);color:var(--accent2);}
+.complete-btn.done{background:rgba(31,170,110,.15);border-color:var(--accent2);color:var(--accent2);}
 .search-hit{padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;}
 .search-hit:hover{border-color:var(--accent);}
 .search-day{font-size:.75rem;color:var(--accent);margin-top:4px;}
+
+.dash-wrap{max-width:1200px;margin:0 auto;padding:16px 24px 0;}
+.dash{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px;animation:fadeInUp .4s ease-out;}
+.dash-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.dash-head h2{font-size:1.15rem;}
+.dash-sub{font-size:.82rem;color:var(--muted);margin-top:2px;}
+.continue-btn{background:var(--cta);color:#241d1f;border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:.88rem;cursor:pointer;}
+.continue-btn:hover{filter:brightness(.96);}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+.tile{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center;}
+.tile-col{flex-direction:column;align-items:stretch;gap:8px;}
+.tile-num{font-size:1.5rem;font-weight:800;}
+.tile-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.donut{transform:rotate(-90deg);}
+.donut-bg{fill:none;stroke:var(--border);stroke-width:10;}
+.donut-fg{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s ease-out;}
+.donut-fg.green{stroke:var(--accent2);}
+.donut-center{font-size:.95rem;font-weight:800;fill:var(--fg);}
+.bar-row{margin-bottom:8px;}
+.bar-top{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:3px;}
+.bar-track{background:var(--border);border-radius:6px;height:8px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;background:var(--accent);transition:width .5s ease-out;}
+.bar-fill.green{background:var(--accent2);}
+.bar-fill.purple{background:var(--purple);}
+.streak-pill{font-size:1.5rem;font-weight:800;}
+.star-btn{background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;margin-top:4px;border-radius:6px;color:var(--muted);}
+.star-btn.on{color:#e6a700;}
+.star-btn:hover{background:rgba(66,95,230,.15);}
 
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
@@ -577,6 +608,10 @@ canvas {
       <div class="stat-value" id="progressPct">0%</div>
       <div class="stat-label">Progress</div>
     </div>
+    <div class="stat">
+      <div class="stat-value" id="masteredCount">0</div>
+      <div class="stat-label">Mastered</div>
+    </div>
   </div>
 </div>
 
@@ -585,6 +620,8 @@ canvas {
 <div class="search-wrap">
   <input type="text" id="globalSearch" placeholder="🔍 Search all 5000 words..." autocomplete="off" oninput="runSearch(this.value)">
 </div>
+
+<section class="dash-wrap"><div class="dash" id="dashboard"></div></section>
 
 <div class="main">
   <div class="content" id="content"></div>
@@ -616,6 +653,11 @@ let words = [];
 let studyPlan = [];
 let notes = [];
 let completedDays = new Set();
+let masteredWords = new Set();
+let wordMeta = {};   // word -> {cat, diff}
+let catTotals = {};
+let diffTotals = {};
+let streak = 0;
 let selectedAnswer = null;
 
 // Load data
@@ -632,11 +674,84 @@ async function loadData() {
   } catch(e) {
     studyPlan = await fetch(`${BASE}/days`).then(r => r.json());
   }
-  loadProgress();
+  await loadProgress();
+  buildMeta();
   renderNav();
   renderDay(1);
   updateHeader();
+  renderDashboard();
   drawChart();
+}
+
+function buildMeta() {
+  wordMeta = {}; catTotals = {}; diffTotals = {};
+  for (const p of studyPlan) {
+    for (const w of (p.words || [])) {
+      wordMeta[w.word] = { cat: w.category || 'Both', diff: w.difficulty || 3 };
+      catTotals[w.category || 'Both'] = (catTotals[w.category || 'Both'] || 0) + 1;
+      diffTotals[w.difficulty || 3] = (diffTotals[w.difficulty || 3] || 0) + 1;
+    }
+  }
+}
+
+function donut(pct, label, green) {
+  const C = 2 * Math.PI * 34;
+  const off = C * (1 - Math.min(1, Math.max(0, pct)));
+  return `<svg class="donut" width="84" height="84" viewBox="0 0 84 84">
+    <circle class="donut-bg" cx="42" cy="42" r="34"></circle>
+    <circle class="donut-fg${green ? ' green' : ''}" cx="42" cy="42" r="34" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"></circle>
+    <text x="42" y="42" text-anchor="middle" dominant-baseline="central" class="donut-center" transform="rotate(90 42 42)">${label}</text>
+  </svg>`;
+}
+
+function barRow(name, done, total, cls) {
+  const pct = total ? Math.round(done / total * 100) : 0;
+  return `<div class="bar-row"><div class="bar-top"><span>${name}</span><span>${done} / ${total}</span></div>
+    <div class="bar-track"><div class="bar-fill${cls ? ' ' + cls : ''}" style="width:${pct}%"></div></div></div>`;
+}
+
+function renderDashboard() {
+  const el = document.getElementById('dashboard');
+  if (!el || !studyPlan.length) return;
+  const daysPct = completedDays.size / 60;
+  const mByCat = {}, mByDiff = {};
+  for (const w of masteredWords) {
+    const m = wordMeta[w];
+    if (!m) continue;
+    mByCat[m.cat] = (mByCat[m.cat] || 0) + 1;
+    mByDiff[m.diff] = (mByDiff[m.diff] || 0) + 1;
+  }
+  const wordsPct = 5000 ? masteredWords.size / 5000 : 0;
+  let next = 60;
+  for (let d = 1; d <= 60; d++) { if (!completedDays.has(d)) { next = d; break; } }
+  const catOrder = ['SAT', 'IELTS', 'Both'];
+  const catCls = { SAT: '', IELTS: 'green', Both: 'purple' };
+  el.innerHTML = `
+    <div class="dash-head">
+      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of 60 days · ${masteredWords.size} of 5000 words mastered</div></div>
+      <button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button>
+    </div>
+    <div class="dash-grid">
+      <div class="tile">${donut(daysPct, completedDays.size + '/60', false)}
+        <div><div class="tile-num">${Math.round(daysPct * 100)}%</div><div class="tile-label">Days complete</div></div></div>
+      <div class="tile">${donut(wordsPct, Math.round(wordsPct * 100) + '%', true)}
+        <div><div class="tile-num">${masteredWords.size}</div><div class="tile-label">Words mastered</div></div></div>
+      <div class="tile"><div class="streak-pill">🔥 ${streak}</div>
+        <div><div class="tile-num">&nbsp;</div><div class="tile-label">Day streak</div></div></div>
+      <div class="tile tile-col"><div class="tile-label">Mastered by exam</div>
+        ${catOrder.map(c => barRow(c, mByCat[c] || 0, catTotals[c] || 0, catCls[c])).join('')}</div>
+      <div class="tile tile-col"><div class="tile-label">Mastered by level</div>
+        ${[3, 4, 5].map(d => barRow('Level ' + d, mByDiff[d] || 0, diffTotals[d] || 0, d === 5 ? 'purple' : (d === 4 ? '' : 'green'))).join('')}</div>
+    </div>`;
+}
+
+async function toggleMastered(word) {
+  if (masteredWords.has(word)) masteredWords.delete(word);
+  else masteredWords.add(word);
+  await saveProgress();
+  updateHeader();
+  renderDay(currentDay);
+  renderDashboard();
 }
 
 // Navigation
@@ -675,6 +790,7 @@ function renderDay(day) {
           <div class="word-text">${w.word}</div>
           <div class="word-pos">${w.part_of_speech}</div>
           <button class="speak-btn" title="Pronounce" onclick="event.stopPropagation();speak('${w.word}')">🔊</button>
+          <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" title="Mark mastered" onclick="event.stopPropagation();toggleMastered('${w.word}')">★</button>
           <div class="word-diff diff-${w.difficulty}"></div>
         </div>
         <div class="word-card-back">
@@ -747,11 +863,11 @@ function checkAnswer(day, exIdx, selected, correct) {
   if (selected === correct) {
     explain.classList.add('show');
     explain.style.borderLeftColor = 'var(--accent2)';
-    explain.style.background = 'rgba(63,185,80,0.1)';
+    explain.style.background = 'rgba(31,170,110,0.1)';
   } else {
     explain.classList.add('show');
     explain.style.borderLeftColor = 'var(--danger)';
-    explain.style.background = 'rgba(248,81,73,0.1)';
+    explain.style.background = 'rgba(229,72,77,0.1)';
   }
 }
 
@@ -820,6 +936,15 @@ async function loadProgress() {
     const res = await fetch(`${BASE}/progress`);
     const data = await res.json();
     completedDays = new Set(data.completed_days || []);
+    masteredWords = new Set(data.mastered_words || []);
+    // streak: consecutive visit-days
+    const today = new Date().toISOString().slice(0, 10);
+    const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    streak = data.streak || 0;
+    if (data.last_visit !== today) {
+      streak = (data.last_visit === yest) ? streak + 1 : 1;
+      saveProgress();
+    }
   } catch(e) {}
 }
 
@@ -828,7 +953,13 @@ async function saveProgress() {
     await fetch(`${BASE}/progress`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed_days: [...completedDays], total_words_studied: wordsStudied })
+      body: JSON.stringify({
+        completed_days: [...completedDays],
+        total_words_studied: wordsStudied,
+        mastered_words: [...masteredWords],
+        streak,
+        last_visit: new Date().toISOString().slice(0, 10)
+      })
     });
   } catch(e) {}
 }
@@ -853,6 +984,7 @@ async function toggleComplete(day) {
   updateHeader();
   renderNav();
   renderDay(currentDay);
+  renderDashboard();
   if (typeof drawChart === 'function') drawChart();
 }
 
@@ -882,6 +1014,7 @@ function runSearch(q) {
 function updateHeader() {
   document.getElementById('completedCount').textContent = completedDays.size;
   document.getElementById('progressPct').textContent = Math.round((completedDays.size / 60) * 100) + '%';
+  document.getElementById('masteredCount').textContent = masteredWords.size;
 }
 
 // Token Status
@@ -910,7 +1043,7 @@ function drawChart() {
   const chartW = w - pad.left - pad.right;
   const chartH = h - pad.top - pad.bottom;
 
-  ctx.fillStyle = '#0d1117';
+  ctx.fillStyle = '#f3f5fd';
   ctx.fillRect(0, 0, w, h);
 
   // Grid
@@ -933,7 +1066,7 @@ function drawChart() {
   }
 
   // Line
-  ctx.strokeStyle = '#58a6ff';
+  ctx.strokeStyle = '#425fe6';
   ctx.lineWidth = 2;
   ctx.beginPath();
   data.forEach((p, i) => {
@@ -948,14 +1081,14 @@ function drawChart() {
   data.forEach((p, i) => {
     const x = pad.left + (chartW / (data.length - 1)) * i;
     const y = pad.top + chartH - (p.words / 85) * chartH;
-    ctx.fillStyle = p.studied ? '#3fb950' : '#58a6ff';
+    ctx.fillStyle = p.studied ? '#1faa6e' : '#425fe6';
     ctx.beginPath();
     ctx.arc(x, y, p.studied ? 5 : 3, 0, Math.PI * 2);
     ctx.fill();
   });
 
   // Labels
-  ctx.fillStyle = '#8b949e';
+  ctx.fillStyle = '#758696';
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   for (let i = 0; i < data.length; i += 10) {

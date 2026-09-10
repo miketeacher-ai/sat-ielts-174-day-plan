@@ -1,8 +1,4 @@
 {
-  "completed_days": [
-    1,
-    2,
-    3
-  ],
-  "total_words_studied": 250
+  "completed_days": [],
+  "total_words_studied": 0
 }

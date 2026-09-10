@@ -540,6 +540,17 @@ canvas {
   margin-bottom: 12px;
 }
 
+.search-wrap{max-width:1200px;margin:0 auto;padding:12px 24px 0;}
+.search-wrap input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--fg);font-size:.9rem;outline:none;}
+.search-wrap input:focus{border-color:var(--accent);}
+.speak-btn{background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;margin-top:4px;border-radius:6px;}
+.speak-btn:hover{background:rgba(88,166,255,.15);}
+.complete-btn{margin-top:12px;padding:10px 20px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-weight:600;cursor:pointer;font-size:.85rem;}
+.complete-btn.done{background:rgba(63,185,80,.15);border-color:var(--accent2);color:var(--accent2);}
+.search-hit{padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;}
+.search-hit:hover{border-color:var(--accent);}
+.search-day{font-size:.75rem;color:var(--accent);margin-top:4px;}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -570,6 +581,10 @@ canvas {
 </div>
 
 <div class="nav" id="dayNav"></div>
+
+<div class="search-wrap">
+  <input type="text" id="globalSearch" placeholder="🔍 Search all 5000 words..." autocomplete="off" oninput="runSearch(this.value)">
+</div>
 
 <div class="main">
   <div class="content" id="content"></div>
@@ -659,6 +674,7 @@ function renderDay(day) {
         <div class="word-card-front">
           <div class="word-text">${w.word}</div>
           <div class="word-pos">${w.part_of_speech}</div>
+          <button class="speak-btn" title="Pronounce" onclick="event.stopPropagation();speak('${w.word}')">🔊</button>
           <div class="word-diff diff-${w.difficulty}"></div>
         </div>
         <div class="word-card-back">
@@ -695,6 +711,7 @@ function renderDay(day) {
       <div class="progress-bar-wrap">
         <div class="progress-bar-fill" style="width: ${((plan.words.length) / 85 * 100).toFixed(1)}%"></div>
       </div>
+      <button class="complete-btn${completedDays.has(plan.day) ? ' done' : ''}" onclick="toggleComplete(${plan.day})">${completedDays.has(plan.day) ? '✓ Day complete — undo' : 'Mark day complete'}</button>
     </div>
 
     <div class="card">
@@ -814,6 +831,52 @@ async function saveProgress() {
       body: JSON.stringify({ completed_days: [...completedDays], total_words_studied: wordsStudied })
     });
   } catch(e) {}
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function speak(t) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'en-US';
+    speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+async function toggleComplete(day) {
+  if (completedDays.has(day)) completedDays.delete(day);
+  else completedDays.add(day);
+  await saveProgress();
+  updateHeader();
+  renderNav();
+  renderDay(currentDay);
+  if (typeof drawChart === 'function') drawChart();
+}
+
+function runSearch(q) {
+  q = q.trim().toLowerCase();
+  if (q.length < 2) { renderDay(currentDay); return; }
+  const hits = [];
+  for (const p of studyPlan) {
+    for (const w of (p.words || [])) {
+      if (w.word.includes(q) || w.definition.toLowerCase().includes(q)) {
+        hits.push({ w, day: p.day });
+        if (hits.length >= 60) break;
+      }
+    }
+    if (hits.length >= 60) break;
+  }
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="card"><div class="card-header"><span class="card-title">🔍 ${hits.length}${hits.length >= 60 ? '+' : ''} results for &quot;${esc(q)}&quot;</span></div>` +
+    hits.map(h => `
+    <div class="search-hit" onclick="selectDay(${h.day})">
+      <strong>${esc(h.w.word)}</strong> <span class="word-pos">${esc(h.w.part_of_speech)}</span>
+      <div class="word-def">${esc(h.w.definition)}</div>
+      <div class="search-day">Day ${h.day} →</div>
+    </div>`).join('') + `</div>`;
 }
 
 function updateHeader() {

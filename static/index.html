@@ -589,6 +589,10 @@ canvas {
 .quiz-review{margin-top:8px;font-size:.85rem;}
 .quiz-review div{padding:6px 0;border-bottom:1px solid var(--border);}
 
+.timer-track{background:var(--border);border-radius:6px;height:8px;overflow:hidden;margin-bottom:12px;}
+.timer-fill{height:100%;width:100%;background:var(--accent);border-radius:6px;}
+.search-hit-actions{display:flex;gap:6px;margin-top:6px;align-items:center;}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -666,7 +670,10 @@ let catTotals = {};
 let diffTotals = {};
 let streak = 0;
 let bestQuiz = 0;
+let bestTimed = 0;
 let quizzesTaken = 0;
+let wrongWords = new Set();
+let wordObj = {};
 let selectedAnswer = null;
 
 // Load data
@@ -693,10 +700,11 @@ async function loadData() {
 }
 
 function buildMeta() {
-  wordMeta = {}; catTotals = {}; diffTotals = {};
+  wordMeta = {}; catTotals = {}; diffTotals = {}; wordObj = {};
   for (const p of studyPlan) {
     for (const w of (p.words || [])) {
       wordMeta[w.word] = { cat: w.category || 'Both', diff: w.difficulty || 3 };
+      wordObj[w.word] = { cat: w.category || 'Both', diff: w.difficulty || 3, pos: w.part_of_speech || '', def: w.definition || '', day: p.day };
       catTotals[w.category || 'Both'] = (catTotals[w.category || 'Both'] || 0) + 1;
       diffTotals[w.difficulty || 3] = (diffTotals[w.difficulty || 3] || 0) + 1;
     }
@@ -738,7 +746,7 @@ function renderDashboard() {
   el.innerHTML = `
     <div class="dash-head">
       <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of 60 days · ${masteredWords.size} of 5000 words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}/10` : ''}</div></div>
-      <div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button><button class="quiz-btn" onclick="startQuiz()">⚡ Quiz me</button></div></div>
+      <div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button><button class="quiz-btn" onclick="startQuiz()">⚡ Quiz</button><button class="quiz-btn" onclick="startQuiz(10,null,true)">⏱ Timed</button><button class="quiz-btn" onclick="reviewView()">📋 Review (${reviewList().length})</button></div></div>
     </div>
     <div class="dash-grid">
       <div class="tile">${donut(daysPct, completedDays.size + '/60', false)}
@@ -756,11 +764,22 @@ function renderDashboard() {
 
 async function toggleMastered(word) {
   if (masteredWords.has(word)) masteredWords.delete(word);
-  else masteredWords.add(word);
+  else { masteredWords.add(word); wrongWords.delete(word); }
   await saveProgress();
   updateHeader();
+  renderNav();
   renderDay(currentDay);
   renderDashboard();
+}
+
+async function masterFromReview(w) {
+  if (masteredWords.has(w)) masteredWords.delete(w);
+  else { masteredWords.add(w); wrongWords.delete(w); }
+  await saveProgress();
+  updateHeader();
+  renderNav();
+  renderDashboard();
+  reviewView();
 }
 
 let quiz = null;
@@ -773,9 +792,13 @@ function shuffle(a) {
   return a;
 }
 
-function startQuiz(n = 10) {
-  const pool = [];
+function startQuiz(n = 10, onlyWords = null, timed = false) {
+  let pool = [];
   for (const p of studyPlan) for (const w of (p.words || [])) pool.push(w);
+  if (onlyWords && onlyWords.length) {
+    const set = new Set(onlyWords);
+    pool = pool.filter(w => set.has(w.word));
+  }
   if (!pool.length) return;
   const used = new Set(), qs = [];
   let guard = 0;
@@ -788,7 +811,7 @@ function startQuiz(n = 10) {
                               : ['definition_match', 'definition_match', 'fill_in_blank'];
     qs.push(makeQuizQ(w, pool, types[Math.floor(Math.random() * types.length)]));
   }
-  quiz = { qs, i: 0, score: 0, log: [] };
+  quiz = { qs, i: 0, score: 0, log: [], timed, timer: null };
   window.scrollTo({ top: 0, behavior: 'smooth' });
   renderQuiz();
 }
@@ -842,7 +865,8 @@ function renderQuiz() {
   const content = document.getElementById('content');
   const q = quiz.qs[quiz.i];
   content.innerHTML = `<div class="card">
-    <div class="quiz-top"><span>Question ${quiz.i + 1} / ${quiz.qs.length}</span><span>Score: ${quiz.score}</span></div>
+    <div class="quiz-top"><span>Question ${quiz.i + 1} / ${quiz.qs.length}${quiz.timed ? ' · ⏱ 10s' : ''}</span><span>Score: ${quiz.score}</span></div>
+    ${quiz.timed ? '<div class="timer-track"><div class="timer-fill" id="quizTimer"></div></div>' : ''}
     <div class="exercise-title">${q.type.replace(/_/g, ' ')}</div>
     <div class="exercise-question">${esc(q.q)}</div>
     <div class="exercise-options">
@@ -854,9 +878,28 @@ function renderQuiz() {
       <button class="quiz-btn" onclick="renderDay(currentDay)">Exit quiz</button>
     </div>
   </div>`;
+  startTimer();
+}
+
+function startTimer() {
+  stopTimer();
+  if (!quiz || !quiz.timed) return;
+  const T = 10000, t0 = Date.now();
+  quiz.timer = setInterval(() => {
+    const bar = document.getElementById('quizTimer');
+    if (!bar || !document.getElementById('quizActions')) { stopTimer(); return; }
+    const left = T - (Date.now() - t0);
+    bar.style.width = Math.max(0, left / T * 100) + '%';
+    if (left <= 0) { stopTimer(); answerQuiz(null); }
+  }, 100);
+}
+
+function stopTimer() {
+  if (quiz && quiz.timer) { clearInterval(quiz.timer); quiz.timer = null; }
 }
 
 function answerQuiz(selected) {
+  stopTimer();
   const q = quiz.qs[quiz.i];
   const opts = document.querySelectorAll('#content .exercise-option');
   opts.forEach(el => {
@@ -866,6 +909,7 @@ function answerQuiz(selected) {
   });
   const ok = selected === q.answer;
   if (ok) quiz.score++;
+  else { wrongWords.add(q.word); if (wrongWords.size > 200) wrongWords.delete(wrongWords.values().next().value); }
   quiz.log.push({ q, picked: selected, ok });
   const ex = document.getElementById('quizExplain');
   ex.textContent = (ok ? '✓ ' : '✕ ') + q.explain;
@@ -878,7 +922,8 @@ async function nextQuiz() {
   quiz.i++;
   if (quiz.i < quiz.qs.length) { renderQuiz(); return; }
   quizzesTaken++;
-  if (quiz.score > bestQuiz) bestQuiz = quiz.score;
+  if (quiz.timed) { if (quiz.score > bestTimed) bestTimed = quiz.score; }
+  else if (quiz.score > bestQuiz) bestQuiz = quiz.score;
   await saveProgress();
   renderDashboard();
   const content = document.getElementById('content');
@@ -886,7 +931,7 @@ async function nextQuiz() {
   content.innerHTML = `<div class="card">
     <div class="card-header"><span class="card-title">⚡ Quiz results</span></div>
     <div class="tile-num">${quiz.score} / ${quiz.qs.length} (${pct}%)</div>
-    <div class="dash-sub">Best: ${bestQuiz}/${quiz.qs.length} · Quizzes taken: ${quizzesTaken}</div>
+    <div class="dash-sub">${quiz.timed ? `Best timed: ${bestTimed}` : `Best: ${bestQuiz}`}/${quiz.qs.length} · Quizzes taken: ${quizzesTaken}</div>
     <div class="quiz-actions">
       <button class="btn-primary btn" onclick="startQuiz()">Retry</button>
       <button class="quiz-btn" onclick="renderDay(currentDay)">Back to Day ${currentDay}</button>
@@ -898,13 +943,66 @@ async function nextQuiz() {
 }
 
 // Navigation
+function reviewList() {
+  const out = [];
+  for (const w of wrongWords) {
+    if (wordObj[w] && !masteredWords.has(w)) {
+      out.push(w);
+      if (out.length >= 60) return out;
+    }
+  }
+  for (const p of studyPlan) {
+    if (!completedDays.has(p.day)) continue;
+    for (const w of (p.words || [])) {
+      if (!masteredWords.has(w.word) && !out.includes(w.word)) {
+        out.push(w.word);
+        if (out.length >= 60) return out;
+      }
+    }
+  }
+  return out;
+}
+
+function reviewView() {
+  const list = reviewList();
+  const content = document.getElementById('content');
+  stopTimer();
+  content.innerHTML = `<div class="card">
+    <div class="card-header"><span class="card-title">📋 Review queue (${list.length})</span>
+    ${list.length ? `<button class="quiz-btn" onclick="startQuiz(Math.min(10,reviewList().length),reviewList())">Quiz these →</button>` : ''}</div>
+    <div class="dash-sub">Missed questions first, then unmastered words from finished days.</div>
+    ${list.map(w => { const m = wordObj[w] || {}; return `
+    <div class="search-hit" onclick="selectDay(${m.day || currentDay})">
+      <strong>${esc(w)}</strong> <span class="word-pos">${esc(m.pos || '')}</span>
+      <div class="word-def">${esc(m.def || '')}</div>
+      <div class="search-hit-actions" onclick="event.stopPropagation()">
+        <button class="speak-btn" title="Pronounce" onclick="speak('${esc(w)}')">🔊</button>
+        <button class="quiz-btn" style="padding:4px 10px;" onclick="masterFromReview('${esc(w)}')">★ Got it</button>
+      </div>
+      <div class="search-day">Day ${m.day || '?'} →</div>
+    </div>`; }).join('') || '<div class="empty-state"><div class="empty-state-icon">🎉</div><p>All clear — nothing to review</p></div>'}</div>`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function renderNav() {
   const nav = document.getElementById('dayNav');
   nav.innerHTML = '';
+  const mDay = {};
+  for (const w of masteredWords) {
+    const m = wordObj[w];
+    if (m) mDay[m.day] = (mDay[m.day] || 0) + 1;
+  }
   for (let d = 1; d <= 60; d++) {
     const btn = document.createElement('button');
     btn.className = 'nav-day' + (d === currentDay ? ' active' : '') + (completedDays.has(d) ? ' completed' : '');
     btn.textContent = d;
+    const tot = (studyPlan[d - 1] && studyPlan[d - 1].words) ? studyPlan[d - 1].words.length : 84;
+    const done = mDay[d] || 0;
+    const pct = Math.round(done / tot * 100);
+    btn.title = `Day ${d}: ${done}/${tot} mastered`;
+    if (d !== currentDay && pct > 0) {
+      btn.style.background = `linear-gradient(0deg, rgba(31,170,110,0.30) ${pct}%, transparent ${pct}%)`;
+    }
     btn.onclick = () => selectDay(d);
     nav.appendChild(btn);
   }
@@ -1085,7 +1183,9 @@ async function loadProgress() {
     const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     streak = data.streak || 0;
     bestQuiz = data.best_quiz || 0;
+    bestTimed = data.best_timed || 0;
     quizzesTaken = data.quizzes_taken || 0;
+    wrongWords = new Set((data.wrong_words || []).slice(-200));
     if (data.last_visit !== today) {
       streak = (data.last_visit === yest) ? streak + 1 : 1;
       saveProgress();
@@ -1104,7 +1204,9 @@ async function saveProgress() {
         mastered_words: [...masteredWords],
         streak,
         best_quiz: bestQuiz,
+        best_timed: bestTimed,
         quizzes_taken: quizzesTaken,
+        wrong_words: [...wrongWords].slice(-200),
         last_visit: new Date().toISOString().slice(0, 10)
       })
     });

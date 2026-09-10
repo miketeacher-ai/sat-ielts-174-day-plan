@@ -1,10 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/index.py": {
-      "includeFiles": "data/words.json, data/study_plan.json",
-      "maxDuration": 30
-    }
+    "api/*.py": { "includeFiles": "data/**" },
+    "api/day/*.py": { "includeFiles": "data/**" },
+    "api/exercise/*.py": { "includeFiles": "data/**" }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [{ "source": "/", "destination": "/static/index.html" }]
 }

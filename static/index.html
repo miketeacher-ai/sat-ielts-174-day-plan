@@ -827,12 +827,9 @@ function totalDays() { return studyPlan.length || 167; }
 
 // Load data
 async function loadData() {
-  try {
-    const wp = await fetch(`${BASE}/words.json`).then(r => r.json());
-    words = wp.words || wp;
-  } catch(e) {
-    // Fallback: load from study plan
-  }
+  // NOTE: the full plan below already carries every word (words,
+  // exercises, topics), so no separate word-list fetch is needed.
+  // (Local Flask also serves /api/words.json; serverless hosts skip it.)
   try {
     const sp = await fetch(`${BASE}/plan`).then(r => r.json());
     studyPlan = sp;

@@ -48,7 +48,7 @@ def valid(w):
     return key in eng or bool(wn.synsets(w.replace(' ', '_')))
 
 # ---------- source 1: curated core ----------
-core = json.load(open(os.path.join(DATA, 'words_core.json')))
+core = json.load(open(os.path.join(SRC, 'words_core.json')))
 sat_src, ielts_src = {}, set()
 for e in core:
     w = clean_word(e['word'])

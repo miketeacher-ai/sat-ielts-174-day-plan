@@ -1459,13 +1459,24 @@ function checkAnswer(day, exIdx, selected, correct) {
 }
 
 // Notes
+function lsGet(k, fb) {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }
+  catch(e) { return fb; }
+}
+function lsSet(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {}
+}
+
 async function loadNotes() {
-  try {
-    const res = await fetch(`${BASE}/notes`);
-    notes = await res.json();
-  } catch(e) {
-    notes = [];
-  }
+  let remote = [];
+  try { remote = await (await fetch(`${BASE}/notes`)).json(); } catch(e) {}
+  const local = lsGet('sat-notes', []);
+  const byId = {};
+  [...local, ...(Array.isArray(remote) ? remote : [])].forEach(n => {
+    if (n && n.id != null) byId[n.id] = n;
+  });
+  notes = Object.values(byId).sort((a, b) => a.id - b.id);
+  lsSet('sat-notes', notes);
   renderNotes();
 }
 
@@ -1476,7 +1487,7 @@ function renderNotes() {
     const item = document.createElement('div');
     item.className = 'note-item';
     item.innerHTML = `
-      <div class="note-text">${note.text}</div>
+      <div class="note-text">${esc(note.text)}</div>
       <div class="note-meta">
         <span>Day ${note.day || '-'}</span>
         <button class="note-delete" onclick="deleteNote(${note.id})">✕</button>
@@ -1494,6 +1505,7 @@ async function addNote() {
   const note = { id: Date.now(), day: currentDay, text, created: new Date().toISOString() };
   notes.push(note);
   input.value = '';
+  lsSet('sat-notes', notes);
   renderNotes();
 
   try {
@@ -1507,6 +1519,7 @@ async function addNote() {
 
 async function deleteNote(id) {
   notes = notes.filter(n => n.id !== id);
+  lsSet('sat-notes', notes);
   renderNotes();
   try {
     await fetch(`${BASE}/notes`, {
@@ -1517,46 +1530,52 @@ async function deleteNote(id) {
   } catch(e) {}
 }
 
-// Progress
+// Progress (API primary, localStorage mirror — works fully offline / on serverless)
+function progressDoc() {
+  return {
+    completed_days: [...completedDays],
+    total_words_studied: wordsStudied,
+    mastered_words: [...masteredWords],
+    streak,
+    best_quiz: bestQuiz,
+    best_timed: bestTimed,
+    quizzes_taken: quizzesTaken,
+    wrong_words: [...wrongWords].slice(-200),
+    gates,
+    last_visit: new Date().toISOString().slice(0, 10)
+  };
+}
 async function loadProgress() {
-  try {
-    const res = await fetch(`${BASE}/progress`);
-    const data = await res.json();
-    completedDays = new Set(data.completed_days || []);
-    masteredWords = new Set(data.mastered_words || []);
-    // streak: consecutive visit-days
-    const today = new Date().toISOString().slice(0, 10);
-    const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-    streak = data.streak || 0;
-    bestQuiz = data.best_quiz || 0;
-    bestTimed = data.best_timed || 0;
-    quizzesTaken = data.quizzes_taken || 0;
-    gates = data.gates || {};
-    wrongWords = new Set((data.wrong_words || []).slice(-200));
-    if (data.last_visit !== today) {
-      streak = (data.last_visit === yest) ? streak + 1 : 1;
-      saveProgress();
-    }
-  } catch(e) {}
+  let data = {};
+  try { data = await (await fetch(`${BASE}/progress`)).json(); } catch(e) {}
+  const local = lsGet('sat-progress', {});
+  const union = (a, b) => [...new Set([...(a || []), ...(b || [])])];
+  completedDays = new Set(union(data.completed_days, local.completed_days));
+  masteredWords = new Set(union(data.mastered_words, local.mastered_words));
+  wrongWords = new Set(union(data.wrong_words, local.wrong_words).slice(-200));
+  gates = Object.assign({}, local.gates, data.gates);
+  bestQuiz = Math.max(data.best_quiz || 0, local.best_quiz || 0);
+  bestTimed = Math.max(data.best_timed || 0, local.best_timed || 0);
+  quizzesTaken = Math.max(data.quizzes_taken || 0, local.quizzes_taken || 0);
+  // streak: consecutive visit-days
+  const today = new Date().toISOString().slice(0, 10);
+  const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  streak = Math.max(data.streak || 0, local.streak || 0);
+  const lastVisit = data.last_visit || local.last_visit;
+  if (lastVisit !== today) {
+    streak = (lastVisit === yest) ? streak + 1 : 1;
+  }
+  await saveProgress();
 }
 
 async function saveProgress() {
+  const doc = progressDoc();
+  lsSet('sat-progress', doc);
   try {
     await fetch(`${BASE}/progress`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        completed_days: [...completedDays],
-        total_words_studied: wordsStudied,
-        mastered_words: [...masteredWords],
-        streak,
-        best_quiz: bestQuiz,
-        best_timed: bestTimed,
-        quizzes_taken: quizzesTaken,
-        wrong_words: [...wrongWords].slice(-200),
-        gates,
-        last_visit: new Date().toISOString().slice(0, 10)
-      })
+      body: JSON.stringify(doc)
     });
   } catch(e) {}
 }

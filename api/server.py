@@ -7,7 +7,26 @@ CORS(app)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(BASE), 'data')
-NOTES_DIR = os.path.join(os.path.dirname(BASE), 'notes')
+
+
+def _writable_notes_dir():
+    """Notes dir with temp fallback (Vercel/serverless filesystems are read-only)."""
+    primary = os.path.join(os.path.dirname(BASE), 'notes')
+    try:
+        os.makedirs(primary, exist_ok=True)
+        probe = os.path.join(primary, '.w')
+        with open(probe, 'w') as f:
+            f.write('1')
+        os.remove(probe)
+        return primary
+    except (OSError, IOError):
+        import tempfile
+        fallback = os.path.join(tempfile.gettempdir(), 'sat-ielts-notes')
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
+
+
+NOTES_DIR = _writable_notes_dir()
 
 def load_json(path):
     with open(path, 'r', encoding='utf-8') as f:

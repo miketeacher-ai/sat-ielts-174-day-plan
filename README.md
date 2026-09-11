@@ -61,11 +61,9 @@ git push -u origin main
 
 - `GET /api/days` — day index (topic, word count)
 - `GET /api/plan` — full plan
-- `GET /api/day/<n>` — one day with words + exercises
-- `GET /api/words.json` — raw word list
-- `GET /api/words/random?n=` — random words (max 50)
+- `GET /api/words.json` — raw word list (local Flask)
+- `GET /api/day/<n>`, `/api/words/random`, `/api/exercise/<n>`, `/api/token-status` — local Flask only
 - `GET/POST /api/progress` · `GET/POST/PUT/DELETE /api/notes`
-- `GET /api/token-status` — AI-call throttle state
 
 ## Data
 

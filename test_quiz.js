@@ -24,4 +24,26 @@ for (let i = 0; i < 300; i++) {
   if (t === 'fill_in_blank' && !q.q.includes('_____')) { console.log('NO BLANK', w.word); bad++; }
 }
 console.log('types:', JSON.stringify(types), '| bad:', bad);
+
+// SM-2 scheduling invariants (deterministic clock).
+for (const fn of ['srUpdate', 'srDueList'])
+  eval(src.match(new RegExp('function ' + fn + '\\([\\s\\S]*?\\n\\}'))[0]);
+global.saveProgress = () => {};
+srMap = {}; wordObj = { abate: { day: 1 } }; masteredWords = new Set();
+const _now = Date.now, T0 = 1700000000000;
+Date.now = () => T0;
+const srEq = (name, cond) => { if (!cond) { console.log('SR FAIL', name); bad++; } };
+srUpdate('ghost', 5);                       // unknown word ignored
+srEq('unknown ignored', !srMap.ghost);
+srUpdate('abate', 5);
+srEq('first pass interval=1', srMap.abate.i === 1 && srMap.abate.n === 1 && srMap.abate.d === T0 + 864e5);
+srUpdate('abate', 5);
+srEq('second pass interval=6', srMap.abate.i === 6 && srMap.abate.n === 2);
+srUpdate('abate', 1);
+srEq('fail resets', srMap.abate.n === 0 && srMap.abate.i === 1);
+Date.now = () => T0 + 2 * 864e5;
+srEq('due after interval', srDueList().includes('abate'));
+masteredWords.add('abate');
+srEq('mastered excluded', !srDueList().includes('abate'));
+Date.now = _now;
 process.exit(bad ? 1 : 0);

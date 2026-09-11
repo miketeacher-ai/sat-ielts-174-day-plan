@@ -1,6 +1,6 @@
 // Quiz generator invariant test: answer in options (once), 4 unique options, no answer==word for synonym_match.
 const fs = require('fs');
-const html = fs.readFileSync('static/index.html', 'utf8');
+const html = fs.readFileSync('index.html', 'utf8');
 const src = html.match(/<script>([\s\S]*)<\/script>/)[1];
 for (const fn of ['shuffle', 'pickDistractors', 'blankWord', 'escReg', 'makeQuizQ'])
   eval(src.match(new RegExp('function ' + fn + '\\([\\s\\S]*?\\n\\}'))[0]);

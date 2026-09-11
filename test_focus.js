@@ -1,6 +1,6 @@
 // Focus-mode render test (throwaway harness, own source only).
 const fs = require('fs');
-const html = fs.readFileSync('static/index.html', 'utf8');
+const html = fs.readFileSync('index.html', 'utf8');
 const src = html.match(/<script>([\s\S]*)<\/script>/)[1];
 for (const fn of ['esc', 'levelLabel', 'renderFocus', 'focusStep'])
   eval(src.match(new RegExp('function ' + fn + '\\([\\s\\S]*?\\n\\}'))[0]);

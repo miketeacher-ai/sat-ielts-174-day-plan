@@ -825,14 +825,22 @@ let selectedAnswer = null;
 
 function totalDays() { return studyPlan.length || 167; }
 
-// Load data
-async function loadData() {
-  // NOTE: the full plan below already carries every word (words,
-  // exercises, topics), so no separate word-list fetch is needed.
-  // (Local Flask also serves /api/words.json; serverless hosts skip it.)
+// Load data: API first (local Flask / serverless functions),
+// static JSON fallback (pure static hosting — same relative path works
+// on Flask via /data/* and on any static host via ./data/*).
+async function apiGet(apiPath, staticPath) {
   try {
-    const sp = await fetch(`${BASE}/plan`).then(r => r.json());
-    studyPlan = sp;
+    const r = await fetch(apiPath);
+    if (r.ok) return await r.json();
+  } catch(e) {}
+  const r2 = await fetch(staticPath);
+  return await r2.json();
+}
+async function loadData() {
+  // NOTE: the full plan already carries every word (words,
+  // exercises, topics), so no separate word-list fetch is needed.
+  try {
+    studyPlan = await apiGet(`${BASE}/plan`, 'data/study_plan.json');
   } catch(e) {
     studyPlan = await fetch(`${BASE}/days`).then(r => r.json());
   }

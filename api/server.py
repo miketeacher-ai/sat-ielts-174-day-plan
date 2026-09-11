@@ -133,11 +133,11 @@ def token_status():
 
 @app.route('/')
 def index():
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(os.path.dirname(BASE), 'index.html')
 
-@app.route('/<path:path>')
+@app.route('/data/<path:path>')
 def static_files(path):
-    return send_from_directory(app.static_folder, path)
+    return send_from_directory(DATA_DIR, path)
 
 if __name__ == '__main__':
     os.makedirs(NOTES_DIR, exist_ok=True)

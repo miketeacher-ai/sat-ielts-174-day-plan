@@ -45,8 +45,8 @@ git push -u origin main
 
 | Path | What |
 |---|---|
-| `static/index.html` | The app — UI + CSS + JS, no build step, no CDN JS |
-| `api/server.py` | Flask backend + JSON API (local dev) |
+| `index.html` | The app — UI + CSS + JS, no build step, no CDN JS (served at `/` everywhere) |
+| `api/server.py` | Flask backend + JSON API (local dev; also serves `/data/*`) |
 | `api/*.py` | Vercel serverless endpoints (one Flask app per route) + shared `_core.py` |
 | `data/words.json` | 5000 words: definition, POS, difficulty 3–5, synonyms, example, category, theme, day |
 | `data/study_plan.json` | 174 days: theme topic, ~30 words, 2 exercises |

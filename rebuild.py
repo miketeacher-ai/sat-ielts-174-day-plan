@@ -7,13 +7,16 @@ import json, os, csv, re, random, shutil
 from collections import Counter
 
 random.seed(60)
-BASE = os.getcwd()
+BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(BASE, 'data')
 
 try:
     from wordfreq import zipf_frequency
     def difficulty(word):
-        z = zipf_frequency(word, 'en')
+        # Multi-word entries: graded by their hardest token, so common
+        # phrases aren't mislabelled C1.
+        parts = word.split(' ')
+        z = min(zipf_frequency(p, 'en') for p in parts)
         if z >= 5.5: return 1
         if z >= 4.5: return 2
         if z >= 3.5: return 3
@@ -21,7 +24,13 @@ try:
         return 5
 except ImportError:
     def difficulty(word):
-        return min(5, max(1, (len(word) + 1) // 3))
+        return min(5, max(1, (len(word.replace(' ', '')) + 1) // 3))
+
+_diff_cache = {}
+def difficulty_cached(word):
+    if word not in _diff_cache:
+        _diff_cache[word] = difficulty(word)
+    return _diff_cache[word]
 
 from nltk.corpus import wordnet as wn
 
@@ -59,6 +68,7 @@ for e in core:
 # ---------- source 2: sat6000.csv ----------
 print('parsing sat6000...')
 n_raw = 0
+n_before = len(sat_src)
 with open(os.path.join(SRC, 'sat6000.csv'), encoding='utf-8', errors='ignore') as f:
     for line in f:
         line = line.strip()
@@ -76,7 +86,7 @@ with open(os.path.join(SRC, 'sat6000.csv'), encoding='utf-8', errors='ignore') a
         sat_src[w] = {'definition': parts[2].strip().capitalize(),
                       'pos': POSMAP.get(parts[3].strip().lower(), ''),
                       'synonyms': [], 'example': ''}
-print('sat6000 kept:', len(sat_src) - len(core), '(scanned', n_raw, ')')
+print('sat6000 kept:', len(sat_src) - n_before, '(scanned', n_raw, ')')
 
 # ---------- source 3: scholarsnyc (word,pos,def,example) ----------
 print('parsing scholarsnyc...')
@@ -94,6 +104,9 @@ with open(os.path.join(SRC, 'sat_words.csv'), encoding='utf-8', errors='ignore')
 print('sat total:', len(sat_src))
 
 # ---------- source 4: AWL headwords + families ----------
+# NOTE: awl.json carries headwords/subwords only (no definitions), so it
+# determines IELTS/Both *membership*; definitions for IELTS-only words come
+# from WordNet in enrich(), falling back to a generic example sentence.
 awl = json.load(open(os.path.join(SRC, 'awl.json')))
 for sub, heads in awl.items():
     if not isinstance(heads, dict):
@@ -188,42 +201,41 @@ ielts_only = ielts_head + ielts_rest
 
 QUOTA = {'Both': 1500, 'SAT': 2200, 'IELTS': 1300}
 MIN_DIFFICULTY = 3  # B1+ only: drop difficulty 1-2 (A1-B1 core vocabulary)
+# Filter BEFORE quota slicing (cached), and track exactly which words are
+# consumed, so quota offsets and spill leftovers stay aligned. Shortfalls
+# (e.g. a small Both overlap) spill from the other pools and are reported.
 WORDS = []
-def take(words, cat, n):
+consumed = set()
+def eligible(pool):
+    return [w for w in pool if w not in consumed and difficulty_cached(w) >= MIN_DIFFICULTY]
+def take(pool, cat, n):
     out = []
-    for w in words:
+    for w in pool:
         if len(out) >= n:
             break
-        if difficulty(w) < MIN_DIFFICULTY:
+        if w in consumed or difficulty_cached(w) < MIN_DIFFICULTY:
             continue
-        src = sat_src.get(w, {})
-        out.append((w, src, cat))
+        consumed.add(w)
+        out.append((w, sat_src.get(w, {}), cat))
     return out
 
-picks = take(both, 'Both', QUOTA['Both']) + take(sat_only, 'SAT', QUOTA['SAT']) + take(ielts_only, 'IELTS', QUOTA['IELTS'])
-# spill: fill shortfalls from remaining pool
-used = {w for w, _, _ in picks}
+both_e = eligible(both)
+sat_e = eligible(sat_only)
+ielts_e = eligible(ielts_only)
+picks = take(both_e, 'Both', QUOTA['Both']) + take(sat_e, 'SAT', QUOTA['SAT']) + take(ielts_e, 'IELTS', QUOTA['IELTS'])
+got = Counter(cat for _, _, cat in picks)
+print('quota fill:', {k: f"{got.get(k, 0)}/{v}" for k, v in QUOTA.items()})
+# spill: fill shortfalls from remaining eligible pool
 short = 5000 - len(picks)
 if short > 0:
-    rest = [w for w in list(sat_only[QUOTA['SAT']:]) + list(ielts_only[QUOTA['IELTS']:]) + list(both[QUOTA['Both']:]) if w not in used]
+    rest = [w for w in sat_e + ielts_e + both_e if w not in consumed]
     for w in rest[:short]:
-        if difficulty(w) < MIN_DIFFICULTY:
-            continue
+        consumed.add(w)
         src = sat_src.get(w, {})
         cat = 'Both' if w in ielts_src and w in sat_src else ('IELTS' if w in ielts_src else 'SAT')
         picks.append((w, src, cat))
-# top-up to 5000 from anything left (B1+ only)
 if len(picks) < 5000:
-    seen = {w for w, _, _ in picks} | used
-    for w in list(sat_only) + list(ielts_only) + list(both):
-        if len(picks) >= 5000:
-            break
-        if w in seen or difficulty(w) < MIN_DIFFICULTY:
-            continue
-        seen.add(w)
-        src = sat_src.get(w, {})
-        cat = 'Both' if w in ielts_src and w in sat_src else ('IELTS' if w in ielts_src else 'SAT')
-        picks.append((w, src, cat))
+    print(f"WARNING: pool exhausted at {len(picks)}/5000 (quotas unfillable from sources)")
 print('picked:', len(picks))
 
 for w, src, cat in picks:
@@ -305,14 +317,19 @@ def topic_for(day):
 for day in range(1, NDAYS + 1):
     dw = [w for w in WORDS if w['day'] == day]
     a, b = dw[0], dw[1] if len(dw) > 1 else dw[0]
-    exs = [a['example'] if a['word'] in a['example'].lower() else f"The results clearly showed {a['word']}."]
-    q1 = re.sub(re.escape(a['word']), '_____', exs[0], count=1, flags=re.I) if a['word'] in exs[0].lower() else f"Choose the word that best completes: 'The results clearly showed _____. (context: {a['definition']})'"
+    ex0 = a['example']
+    if a['word'] in ex0.lower():
+        q1 = re.sub(re.escape(a['word']), '_____', ex0, count=1, flags=re.I) + f"  (context: {a['definition']})"
+    else:
+        q1 = f"Choose the word that best completes: 'The results clearly showed _____. (context: {a['definition']})'"
     distract1 = [w['word'] for w in dw[2:5]]
     while len(distract1) < 3:
         distract1.append(random.choice(WORDS)['word'])
+    opts1 = [a['word']] + distract1[:3]
+    random.shuffle(opts1)
     e1 = {'type': 'fill_in_blank',
-          'question': f"{q1}  (context: {a['definition']})",
-          'options': sorted([a['word']] + distract1[:3], key=lambda x: random.random()),
+          'question': q1,
+          'options': opts1,
           'answer': a['word'],
           'explanation': f"'{a['word']}' means: {a['definition']}. Example: {a['example']}"}
     syns = [s for s in b.get('synonyms', []) if s != b['word']]
@@ -321,17 +338,21 @@ for day in range(1, NDAYS + 1):
     else:
         # no distinct synonym known: quiz on the word's own definition instead
         pool = [w['word'] for w in random.sample(WORDS, 200) if w['word'] != b['word']]
+        opts2 = [b['word']] + pool[:3]
+        random.shuffle(opts2)
         e2 = {'type': 'definition_match',
               'question': f"Which word means: '{b['definition']}'?",
-              'options': sorted([b['word']] + pool[:3], key=lambda x: random.random()),
+              'options': opts2,
               'answer': b['word'],
               'explanation': f"'{b['word']}' means: {b['definition']}. Example: {b['example']}"}
         plan.append({'day': day, 'topic': dw[0].get('day_theme') or topic_for(day), 'words': dw, 'exercises': [e1, e2]})
         continue
     pool = [w['word'] for w in random.sample(WORDS, 200) if w['word'] != b['word'] and w['word'] != correct]
+    opts3 = [correct] + pool[:3]
+    random.shuffle(opts3)
     e2 = {'type': 'synonym_match',
           'question': f"Which word is closest in meaning to '{b['word']}' ({b['definition']})?",
-          'options': sorted([correct] + pool[:3], key=lambda x: random.random()),
+          'options': opts3,
           'answer': correct,
           'explanation': f"'{correct}' shares the meaning of '{b['word']}': {b['definition']}."}
     plan.append({'day': day, 'topic': dw[0].get('day_theme') or topic_for(day), 'words': dw, 'exercises': [e1, e2]})

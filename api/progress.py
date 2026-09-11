@@ -15,6 +15,10 @@ app = Flask(__name__)
 def handler():
     path = os.path.join(NOTES_DIR, 'progress.json')
     if request.method == 'POST':
-        save_json(path, request.json)
+        doc = request.get_json(silent=True)
+        if not isinstance(doc, dict):
+            return jsonify({"error": "Progress body must be a JSON object"}), 400
+        save_json(path, doc)
         return jsonify({"status": "saved"})
-    return jsonify(load_json(path, {"completed_days": [], "total_words_studied": 0}))
+    data = load_json(path, {"completed_days": [], "total_words_studied": 0})
+    return jsonify(data if isinstance(data, dict) else {"completed_days": [], "total_words_studied": 0})

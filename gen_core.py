@@ -2,12 +2,13 @@ import json, os, random
 from collections import Counter
 random.seed(42)
 USED = set()
-BASE = os.getcwd()
+BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE, 'data')
-os.makedirs(DATA_DIR, exist_ok=True)
+SRC_DIR = os.path.join(DATA_DIR, 'sources')
+os.makedirs(SRC_DIR, exist_ok=True)
 
 def aw(word, definition, pos, difficulty, synonyms, example, category):
-    w = word.lower().strip().replace(' ', '_')
+    w = word.lower().strip().replace('_', ' ')
     if w in USED or len(w) < 3 or len(w) > 18:
         return None
     USED.add(w)
@@ -145,6 +146,9 @@ for item in core:
     w = aw(item[0], item[1], item[2], item[3], item[4], item[5], item[6])
     if w: WORDS.append(w)
 print(f'Core SAT: {len(WORDS)}')
-with open(os.path.join(DATA_DIR, 'words_core.json'), 'w') as f:
+# NOTE: rebuild.py reads this file from data/sources/ (alongside the other
+# source lists); difficulty/category here are advisory — rebuild re-grades
+# difficulty via wordfreq and re-derives Both membership via AWL overlap.
+with open(os.path.join(SRC_DIR, 'words_core.json'), 'w') as f:
     json.dump(WORDS, f)
 print('Saved core words')

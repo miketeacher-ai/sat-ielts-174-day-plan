@@ -1,0 +1,11 @@
+{
+  "name": "sat-ielts-vocab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SAT & IELTS 174-day vocabulary plan",
+  "scripts": {
+    "test": "node test_quiz.js && node test_focus.js",
+    "test:quiz": "node test_quiz.js",
+    "test:focus": "node test_focus.js"
+  }
+}

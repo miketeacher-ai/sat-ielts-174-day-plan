@@ -751,7 +751,7 @@ canvas {
 
 <div class="header">
   <h1>📚 SAT & IELTS 174-Day Plan</h1>
-  <button id="themeBtn" class="quiz-btn" style="padding:6px 12px;" title="Toggle dark mode" onclick="toggleTheme()">🌙</button>
+  <button id="themeBtn" class="quiz-btn" style="padding:6px 12px;" title="Toggle dark mode" aria-label="Toggle dark mode" onclick="toggleTheme()">🌙</button>
   <div class="header-stats">
     <div class="stat">
       <div class="stat-value" id="totalWords">5000</div>
@@ -775,13 +775,13 @@ canvas {
 <div class="nav" id="dayNav"></div>
 
 <div class="search-wrap">
-  <input type="text" id="globalSearch" placeholder="🔍 Search all 5000 words..." autocomplete="off" oninput="debouncedSearch(this.value)">
+  <input type="text" id="globalSearch" placeholder="🔍 Search words..." autocomplete="off" aria-label="Search all words" oninput="debouncedSearch(this.value)">
 </div>
 
 <section class="dash-wrap"><div class="dash" id="dashboard"></div></section>
 
 <div class="main">
-  <div class="content" id="content"></div>
+  <div class="content" id="content"><div class="card"><div class="empty-state"><div class="empty-state-icon">📚</div><p>Loading study plan…</p></div></div></div>
   <div class="sidebar">
     <div class="card notes-panel">
       <div class="notes-header">
@@ -816,14 +816,23 @@ let catTotals = {};
 let diffTotals = {};
 let streak = 0;
 let bestQuiz = 0;
+let bestQuizN = 0;
 let bestTimed = 0;
+let bestTimedN = 0;
 let quizzesTaken = 0;
 let wrongWords = new Set();
+let seenWords = new Set();
 let wordObj = {};
 let allWords = [];
 let selectedAnswer = null;
 
-function totalDays() { return studyPlan.length || 167; }
+function totalDays() { return studyPlan.length || 174; }
+function totalWords() { return allWords.length || 5000; }
+function maxDayWords() {
+  let m = 30;
+  for (const p of studyPlan) m = Math.max(m, (p.words || []).length);
+  return m;
+}
 
 // Load data: API first (local Flask / serverless functions),
 // static JSON fallback (pure static hosting — same relative path works
@@ -842,7 +851,11 @@ async function loadData() {
   try {
     studyPlan = await apiGet(`${BASE}/plan`, 'data/study_plan.json');
   } catch(e) {
-    studyPlan = await fetch(`${BASE}/days`).then(r => r.json());
+    studyPlan = [];
+  }
+  if (!Array.isArray(studyPlan) || !studyPlan.length || !studyPlan.some(p => Array.isArray(p.words) && p.words.length)) {
+    document.getElementById('content').innerHTML = '<div class="card"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Could not load study data. Check your connection and reload.</p></div></div>';
+    return;
   }
   await loadProgress();
   buildMeta();
@@ -864,6 +877,8 @@ function buildMeta() {
       diffTotals[w.difficulty || 3] = (diffTotals[w.difficulty || 3] || 0) + 1;
     }
   }
+  const s = document.getElementById('globalSearch');
+  if (s) s.placeholder = `🔍 Search all ${totalWords()} words...`;
 }
 
 function donut(pct, label, green) {
@@ -905,14 +920,14 @@ function renderDashboard() {
     mByCat[m.cat] = (mByCat[m.cat] || 0) + 1;
     mByDiff[m.diff] = (mByDiff[m.diff] || 0) + 1;
   }
-  const wordsPct = 5000 ? masteredWords.size / 5000 : 0;
+  const wordsPct = totalWords() ? masteredWords.size / totalWords() : 0;
   let next = totalDays();
   for (let d = 1; d <= totalDays(); d++) { if (!completedDays.has(d)) { next = d; break; } }
   const catOrder = ['SAT', 'IELTS', 'Both'];
   const catCls = { SAT: '', IELTS: 'green', Both: 'purple' };
   el.innerHTML = `
     <div class="dash-head">
-      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of ${totalDays()} days · ${masteredWords.size} of 5000 words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}/10` : ''}</div></div>
+      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of ${totalDays()} days · ${masteredWords.size} of ${totalWords()} words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}${bestQuizN ? '/' + bestQuizN : ''}` : ''}</div></div>
       <div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button><button class="quiz-btn" onclick="startQuiz()">⚡ Quiz</button><button class="quiz-btn" onclick="startQuiz(10,null,true)">⏱ Timed</button><button class="quiz-btn" onclick="reviewView()">📋 Review (${reviewList().length})</button></div></div>
     </div>
     <div class="dash-grid">
@@ -1019,14 +1034,20 @@ function startFinalQuiz() {
 
 function quizBack() {
   const ret = quiz ? quiz.ret : null;
-  quiz = null;
   stopTimer();
+  quiz = null;
   renderDay(currentDay);
   if (ret != null && focus) {
     focus.i = Math.min(ret, focus.words.length - 1);
     focus.flipped = false;
     renderFocus();
   }
+}
+
+function exitQuiz() {
+  stopTimer();
+  quiz = null;
+  renderDay(currentDay);
 }
 
 function initDayPager() {
@@ -1042,33 +1063,34 @@ function renderFocus() {
   if (!content) return;
   if (focus.target === 'day' && focus.i >= 5 && !gateOk(currentDay, 'c')) return renderLock();
   const w = focus.words[focus.i];
+  markSeen(focus.words);
   content.innerHTML = `<div class="card focus-wrap">
     <div class="quiz-top"><span>Day ${currentDay} · Card ${focus.i + 1} / ${focus.words.length}</span>
-    <span><button class="quiz-btn" style="padding:4px 10px;" onclick="startFocus(${focus.shuffled ? 'false' : 'true'})">${focus.shuffled ? 'Unshuffle' : 'Shuffle'}</button>
+    <span><button class="quiz-btn" style="padding:4px 10px;" data-act="focus-shuffle" data-shuffled="${focus.shuffled ? 1 : 0}">${focus.shuffled ? 'Unshuffle' : 'Shuffle'}</button>
     ${focus.target === 'day'
-      ? `<button class="quiz-btn" style="padding:4px 10px;" onclick="gridView=true;focus=null;renderDay(currentDay)">▦ All cards</button>`
-      : `<button class="quiz-btn" style="padding:4px 10px;" onclick="focus=null;renderDay(currentDay)">✕ Grid</button>`}</span></div>
-    <div class="focus-card${focus.flipped ? ' flipped' : ''}${focus.dir ? ` enter-${focus.dir > 0 ? 'right' : 'left'}` : ''}" onclick="focus.flipped=!focus.flipped;focus.dir=null;this.classList.toggle('flipped')">
+      ? `<button class="quiz-btn" style="padding:4px 10px;" data-act="focus-grid">▦ All cards</button>`
+      : `<button class="quiz-btn" style="padding:4px 10px;" data-act="focus-grid">✕ Grid</button>`}</span></div>
+    <div class="focus-card${focus.flipped ? ' flipped' : ''}${focus.dir ? ` enter-${focus.dir > 0 ? 'right' : 'left'}` : ''}" data-act="focus-flip">
       <div class="focus-inner">
         <div class="focus-front">
           <div class="focus-word">${esc(w.word)}</div>
           <div class="word-pos">${esc(w.part_of_speech)}</div>
           <div class="diff-pill"><span class="word-diff diff-${w.difficulty}"></span>${levelLabel(w.difficulty)}</div>
-          <div class="word-hint">💡 ${w.part_of_speech} · ${w.word.length} letters · starts with “${w.word[0]}”</div>
+          <div class="word-hint">💡 ${esc(w.part_of_speech)} · ${esc(String(w.word.length))} letters · starts with “${esc(w.word[0])}”</div>
           <div class="focus-hint">Tap to reveal · Space flips</div>
         </div>
         <div class="focus-back">
           <div class="focus-def">${esc(w.definition)}</div>
-          <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + esc(w.synonyms.join(', ')) : 'No close synonym — see definition'}</div>
+          <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + w.synonyms.map(esc).join(', ') : 'No close synonym — see definition'}</div>
           <div class="word-example">“${esc(w.example)}”</div>
-          <div class="word-meta-rows"><span>📚 ${esc(w.theme || 'General')}</span><span>🎯 ${esc(w.category || 'Both')}</span><span>📅 Day ${w.day || ''}</span></div>
+          <div class="word-meta-rows"><span>📚 ${esc(w.theme || 'General')}</span><span>🎯 ${esc(w.category || 'Both')}</span><span>📅 Day ${esc(String(w.day || ''))}</span></div>
         </div>
       </div>
     </div>
     <div class="focus-nav">
       <button class="quiz-btn" onclick="focusStep(-1)">← Prev</button>
-      <button class="speak-btn" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Pronounce" onclick="speak('${esc(w.word)}')">🔊</button>
-      <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Mark mastered" onclick="toggleMastered('${esc(w.word)}',this)">★</button>
+      <button class="speak-btn" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Pronounce" aria-label="Pronounce word aloud" data-act="speak" data-word="${esc(w.word)}">🔊</button>
+      <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" style="font-size:1.5rem;min-width:52px;min-height:52px;" title="Mark mastered" aria-label="Mark word as mastered" data-act="master" data-word="${esc(w.word)}">★</button>
       <button class="complete-btn" style="margin-top:0;" onclick="focusMasterNext()">Got it →</button>
       ${(focus.target === 'day' && focus.i === focus.words.length - 1 && !gateOk(currentDay, 'f')) ? `<button class="complete-btn" style="margin-top:0;" onclick="startFinalQuiz()">🏁 Final quiz</button>` : ''}
       <button class="quiz-btn" onclick="focusStep(1)">Next →</button>
@@ -1120,8 +1142,12 @@ function shuffle(a) {
 }
 
 function startQuiz(n = 10, onlyWords = null, timed = false, extra = null) {
-  let pool = [];
-  for (const p of studyPlan) for (const w of (p.words || [])) pool.push(w);
+  // Reuse the cached word list built by buildMeta() instead of re-walking
+  // the whole plan on every quiz launch.
+  let pool = allWords.length ? [...allWords] : [];
+  if (!pool.length) {
+    for (const p of studyPlan) for (const w of (p.words || [])) pool.push(w);
+  }
   if (onlyWords && onlyWords.length) {
     const set = new Set(onlyWords);
     pool = pool.filter(w => set.has(w.word));
@@ -1144,14 +1170,15 @@ function startQuiz(n = 10, onlyWords = null, timed = false, extra = null) {
 }
 
 function pickDistractors(pool, excl, n) {
+  // Sample directly instead of shuffling a 5000-word copy per question.
   const banned = new Set(Array.isArray(excl) ? excl : [excl]);
   const out = [];
-  const c = shuffle([...pool]);
-  for (const w of c) {
-    if (!banned.has(w.word) && !out.includes(w.word)) {
-      out.push(w.word);
-      if (out.length >= n) break;
-    }
+  const seen = new Set();
+  let guard = 0;
+  while (out.length < n && guard++ < pool.length * 2 + 20) {
+    const cand = pool[(Math.random() * pool.length) | 0];
+    const w = cand && cand.word;
+    if (w && !banned.has(w) && !seen.has(w)) { seen.add(w); out.push(w); }
   }
   return out;
 }
@@ -1168,8 +1195,13 @@ function escReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 function makeQuizQ(w, pool, type) {
   if (type === 'synonym_match') {
-    const correct = w.synonyms.filter(s => s !== w.word)[0];
-    const opts = shuffle([correct, ...pickDistractors(pool, [w.word, correct], 3)]);
+    const syns = w.synonyms.filter(s => s !== w.word);
+    const correct = syns[0];
+    // Exclude every known synonym of w, not just the answer: a distractor
+    // that is also a valid synonym would make the question ambiguous.
+    const banned = new Set([w.word, correct, ...syns]);
+    const cands = pool.filter(x => !banned.has(x.word));
+    const opts = shuffle([correct, ...pickDistractors(cands, [w.word, correct], 3)]);
     return { type, word: w.word,
       q: `Which word is closest in meaning to '${w.word}'?`,
       options: opts, answer: correct,
@@ -1197,12 +1229,12 @@ function renderQuiz() {
     <div class="exercise-title">${q.type.replace(/_/g, ' ')}</div>
     <div class="exercise-question">${esc(q.q)}</div>
     <div class="exercise-options">
-      ${q.options.map(o => `<div class="exercise-option" onclick="answerQuiz('${esc(o).replace(/'/g, "\\'")}')">${esc(o)}</div>`).join('')}
+      ${q.options.map((o, idx) => `<div class="exercise-option" data-act="quiz-opt" data-idx="${idx}">${esc(o)}</div>`).join('')}
     </div>
     <div class="explanation" id="quizExplain"></div>
     <div class="quiz-actions" id="quizActions" style="display:none">
       <button class="btn-primary btn" onclick="nextQuiz()">${quiz.i + 1 < quiz.qs.length ? 'Next →' : 'See results'}</button>
-      <button class="quiz-btn" onclick="renderDay(currentDay)">Exit quiz</button>
+      <button class="quiz-btn" onclick="exitQuiz()">Exit quiz</button>
     </div>
   </div>`;
   startTimer();
@@ -1233,13 +1265,16 @@ function stopTimer() {
 }
 
 function answerQuiz(selected) {
+  if (!quiz || !quiz.qs || !quiz.qs[quiz.i]) return;
   stopTimer();
   const q = quiz.qs[quiz.i];
   const opts = document.querySelectorAll('#content .exercise-option');
   opts.forEach(el => {
     el.style.pointerEvents = 'none';
-    if (el.textContent === q.answer) el.classList.add('correct');
-    else if (el.textContent === selected) el.classList.add('incorrect');
+    const idx = el.getAttribute('data-idx');
+    const val = idx != null && q.options[Number(idx)] !== undefined ? q.options[Number(idx)] : el.textContent;
+    if (val === q.answer) el.classList.add('correct');
+    else if (val === selected) el.classList.add('incorrect');
   });
   const ok = selected === q.answer;
   if (ok) quiz.score++;
@@ -1256,8 +1291,8 @@ async function nextQuiz() {
   quiz.i++;
   if (quiz.i < quiz.qs.length) { renderQuiz(); return; }
   quizzesTaken++;
-  if (quiz.timed) { if (quiz.score > bestTimed) bestTimed = quiz.score; }
-  else if (quiz.score > bestQuiz) bestQuiz = quiz.score;
+  if (quiz.timed) { if (quiz.score > bestTimed) { bestTimed = quiz.score; bestTimedN = quiz.qs.length; } }
+  else if (quiz.score > bestQuiz) { bestQuiz = quiz.score; bestQuizN = quiz.qs.length; }
   const passed = !quiz.passNeed || quiz.score >= quiz.passNeed;
   if (typeof quiz.onDone === 'function') { try { quiz.onDone(passed); } catch(e) {} }
   await saveProgress();
@@ -1270,7 +1305,7 @@ async function nextQuiz() {
     ${quiz.passNeed ? (passed
       ? `<div class="pass-banner">🔓 Unlocked — nice work!</div>`
       : `<div class="fail-banner">🔒 Need ${quiz.passNeed}/${quiz.qs.length} to unlock — retry below</div>`) : ''}
-    <div class="dash-sub">${quiz.timed ? `Best timed: ${bestTimed}` : `Best: ${bestQuiz}`}/${quiz.qs.length} · Quizzes taken: ${quizzesTaken}</div>
+    <div class="dash-sub">${quiz.timed ? `Best timed: ${bestTimed}${bestTimedN ? '/' + bestTimedN : ''}` : `Best: ${bestQuiz}${bestQuizN ? '/' + bestQuizN : ''}`} · Quizzes taken: ${quizzesTaken}</div>
     <div class="quiz-actions">
       <button class="btn-primary btn" onclick="startQuiz()">Retry</button>
       <button class="quiz-btn" onclick="quizBack()">Back to Day ${currentDay}</button>
@@ -1312,39 +1347,49 @@ function reviewView() {
     ${list.length ? `<button class="quiz-btn" onclick="startQuiz(Math.min(10,reviewList().length),reviewList())">Quiz these →</button>` : ''}</div>
     <div class="dash-sub">Missed questions first, then unmastered words from finished days.</div>
     ${list.map(w => { const m = wordObj[w] || {}; return `
-    <div class="search-hit" onclick="selectDay(${m.day || currentDay})">
+    <div class="search-hit" onclick="selectDay(${Number(m.day) || currentDay})">
       <strong>${esc(w)}</strong> <span class="word-pos">${esc(m.pos || '')}</span>
       <div class="word-def">${esc(m.def || '')}</div>
       <div class="search-hit-actions" onclick="event.stopPropagation()">
-        <button class="speak-btn" title="Pronounce" onclick="speak('${esc(w)}')">🔊</button>
-        <button class="quiz-btn" style="padding:4px 10px;" onclick="masterFromReview('${esc(w)}')">★ Got it</button>
+        <button class="speak-btn" title="Pronounce" aria-label="Pronounce word aloud" data-act="speak" data-word="${esc(w)}">🔊</button>
+        <button class="quiz-btn" style="padding:4px 10px;" data-act="review-got" data-word="${esc(w)}">★ Got it</button>
       </div>
-      <div class="search-day">Day ${m.day || '?'} →</div>
+      <div class="search-day">Day ${esc(String(m.day || '?'))} →</div>
     </div>`; }).join('') || '<div class="empty-state"><div class="empty-state-icon">🎉</div><p>All clear — nothing to review</p></div>'}</div>`;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderNav() {
   const nav = document.getElementById('dayNav');
-  nav.innerHTML = '';
+  // Build the 174 buttons once; later calls only patch state in place so
+  // rapid mastered-toggles don't trash and rebuild the whole strip.
+  if (nav.childElementCount !== totalDays()) {
+    nav.innerHTML = '';
+    for (let d = 1; d <= totalDays(); d++) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-day';
+      btn.textContent = d;
+      btn.dataset.day = d;
+      btn.onclick = () => selectDay(Number(btn.dataset.day));
+      nav.appendChild(btn);
+    }
+  }
   const mDay = {};
   for (const w of masteredWords) {
     const m = wordObj[w];
     if (m) mDay[m.day] = (mDay[m.day] || 0) + 1;
   }
-  for (let d = 1; d <= totalDays(); d++) {
-    const btn = document.createElement('button');
-    btn.className = 'nav-day' + (d === currentDay ? ' active' : '') + (completedDays.has(d) ? ' completed' : '');
-    btn.textContent = d;
-    const tot = (studyPlan[d - 1] && studyPlan[d - 1].words) ? studyPlan[d - 1].words.length : 84;
+  for (const btn of nav.children) {
+    const d = Number(btn.dataset.day);
+    btn.classList.toggle('active', d === currentDay);
+    btn.classList.toggle('completed', completedDays.has(d));
+    const tot = (studyPlan[d - 1] && studyPlan[d - 1].words) ? studyPlan[d - 1].words.length : maxDayWords();
     const done = mDay[d] || 0;
     const pct = Math.round(done / tot * 100);
     btn.title = `Day ${d}: ${done}/${tot} mastered`;
-    if (d !== currentDay && pct > 0) {
-      btn.style.background = `linear-gradient(0deg, rgba(31,170,110,0.30) ${pct}%, transparent ${pct}%)`;
-    }
-    btn.onclick = () => selectDay(d);
-    nav.appendChild(btn);
+    btn.style.background = (d !== currentDay && pct > 0)
+      ? `linear-gradient(0deg, rgba(31,170,110,0.30) ${pct}%, transparent ${pct}%)`
+      : '';
   }
 }
 
@@ -1359,31 +1404,33 @@ function selectDay(d) {
 // Render Day
 function renderDay(day) {
   focus = null;
+  stopTimer();
   const content = document.getElementById('content');
   const plan = studyPlan.find(p => p.day === day);
   if (!plan) {
     content.innerHTML = '<div class="card"><div class="empty-state"><div class="empty-state-icon">🔍</div><p>Day not found</p></div></div>';
     return;
   }
+  markSeen(plan.words || []);
 
   const wordCards = plan.words.map(w => `
-    <div class="word-card" onclick="this.classList.toggle('flipped')">
+    <div class="word-card" data-act="flip">
       <div class="word-card-inner">
         <div class="word-card-front">
-          <div class="word-text">${w.word}</div>
-          <div class="word-pos">${w.part_of_speech}</div>
-          <div class="card-actions">
-            <button class="speak-btn" title="Pronounce" onclick="event.stopPropagation();speak('${w.word}')">🔊</button>
-            <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" title="Mark mastered" onclick="event.stopPropagation();toggleMastered('${w.word}',this)">★</button>
+          <div class="word-text">${esc(w.word)}</div>
+          <div class="word-pos">${esc(w.part_of_speech)}</div>
+          <div class="card-actions" onclick="event.stopPropagation()">
+            <button class="speak-btn" title="Pronounce" aria-label="Pronounce word aloud" data-act="speak" data-word="${esc(w.word)}">🔊</button>
+            <button class="star-btn${masteredWords.has(w.word) ? ' on' : ''}" title="Mark mastered" aria-label="Mark word as mastered" data-act="master" data-word="${esc(w.word)}">★</button>
           </div>
-          <div class="word-hint">💡 ${w.part_of_speech} · ${w.word.length} letters · starts with “${w.word[0]}”</div>
+          <div class="word-hint">💡 ${esc(w.part_of_speech)} · ${esc(String(w.word.length))} letters · starts with “${esc(w.word[0])}”</div>
           <div class="diff-pill"><span class="word-diff diff-${w.difficulty}"></span>${levelLabel(w.difficulty)}</div>
         </div>
         <div class="word-card-back">
-          <div class="word-def">${w.definition}</div>
-          <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + w.synonyms.join(', ') : 'No close synonym — see definition'}</div>
-          <div class="word-example">“${w.example}”</div>
-          <div class="word-meta-rows"><span>📚 ${w.theme || 'General'}</span><span>🎯 ${w.category || 'Both'}</span><span>📅 Day ${w.day || ''}</span></div>
+          <div class="word-def">${esc(w.definition)}</div>
+          <div class="word-syn">${(w.synonyms.length > 1 || w.synonyms[0] !== w.word) ? 'Synonyms: ' + w.synonyms.map(esc).join(', ') : 'No close synonym — see definition'}</div>
+          <div class="word-example">“${esc(w.example)}”</div>
+          <div class="word-meta-rows"><span>📚 ${esc(w.theme || 'General')}</span><span>🎯 ${esc(w.category || 'Both')}</span><span>📅 Day ${esc(String(w.day || ''))}</span></div>
         </div>
       </div>
     </div>
@@ -1391,28 +1438,30 @@ function renderDay(day) {
 
   const exercises = plan.exercises.map((ex, i) => `
     <div class="exercise" id="ex-${day}-${i}">
-      <div class="exercise-title">Exercise ${i + 1}: ${ex.type.replace(/_/g, ' ')}</div>
-      <div class="exercise-question">${ex.question}</div>
+      <div class="exercise-title">Exercise ${i + 1}: ${esc(ex.type.replace(/_/g, ' '))}</div>
+      <div class="exercise-question">${esc(ex.question)}</div>
       <div class="exercise-options">
         ${ex.options.map((opt, j) => `
-          <div class="exercise-option" onclick="checkAnswer(${day}, ${i}, '${opt}', '${ex.answer}')">${opt}</div>
+          <div class="exercise-option" data-act="ex-opt" data-day="${day}" data-ex="${i}" data-idx="${j}">${esc(opt)}</div>
         `).join('')}
       </div>
-      <div class="explanation" id="explain-${day}-${i}">${ex.explanation}</div>
+      <div class="explanation" id="explain-${day}-${i}">${esc(ex.explanation)}</div>
     </div>
   `).join('');
 
+  const dayCat = (plan.words[0] && plan.words[0].category) || 'Both';
+  const dayCatCls = dayCat === 'SAT' ? 'sat' : (dayCat === 'IELTS' ? 'ielts' : 'both');
   content.innerHTML = `
     <div class="card">
       <div class="day-info">
         <div class="day-number">Day ${plan.day}</div>
         <div>
-          <div class="day-topic">${plan.topic}</div>
-          <div class="day-meta">${plan.words.length} words · 2 exercises</div>
+          <div class="day-topic">${esc(plan.topic)}</div>
+          <div class="day-meta">${plan.words.length} words · ${plan.exercises.length} exercises</div>
         </div>
       </div>
       <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width: ${((plan.words.length) / 35 * 100).toFixed(1)}%"></div>
+        <div class="progress-bar-fill" style="width: ${((plan.words.length) / maxDayWords() * 100).toFixed(1)}%"></div>
       </div>
       ${(!completedDays.has(plan.day) && plan.words.length && !gateOk(plan.day, 'f'))
         ? `<button class="complete-btn" onclick="startFinalQuiz()">🔒 Pass the final quiz to complete</button>`
@@ -1422,7 +1471,7 @@ function renderDay(day) {
     <div class="card">
       <div class="card-header">
         <span class="card-title">📖 Words (${plan.words.length})</span>
-        <span class="badge badge-${plan.words[0]?.category?.toLowerCase() || 'sat'}">${plan.words[0]?.category || 'Both'}</span>
+        <span class="badge badge-${dayCatCls}">${esc(dayCat)}</span>
       </div>
       ${gridView
         ? `<div class="focus-launch"><button class="quiz-btn" onclick="gridView=false;renderDay(currentDay)">🎯 Focus mode: one big card at a time</button></div><div class="words-grid">${wordCards}</div>`
@@ -1439,14 +1488,21 @@ function renderDay(day) {
   if (!gridView) initDayPager();
 }
 
-// Exercise
-function checkAnswer(day, exIdx, selected, correct) {
+// Exercise (index-based: option values are read back from the plan, never
+// interpolated into inline handlers)
+function checkAnswer(day, exIdx, optIdx) {
+  const plan = studyPlan.find(p => p.day === day);
+  const ex = plan && plan.exercises[exIdx];
+  if (!ex) return;
+  const selected = ex.options[optIdx];
+  const correct = ex.answer;
   const exercise = document.getElementById(`ex-${day}-${exIdx}`);
+  if (!exercise) return;
   const options = exercise.querySelectorAll('.exercise-option');
   const explain = document.getElementById(`explain-${day}-${exIdx}`);
 
   options.forEach((opt, i) => {
-    const val = opt.textContent;
+    const val = ex.options[i];
     if (val === correct) opt.classList.add('correct');
     else if (val === selected && selected !== correct) opt.classList.add('incorrect');
     opt.style.pointerEvents = 'none';
@@ -1514,11 +1570,20 @@ async function addNote() {
   renderNotes();
 
   try {
-    await fetch(`${BASE}/notes`, {
+    const r = await fetch(`${BASE}/notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(note)
     });
+    // Adopt the canonical server id (it preserves ours when unique, else
+    // reassigns) so the next merge doesn't duplicate this note.
+    const saved = await r.json();
+    if (saved && saved.id != null && saved.id !== note.id) {
+      note.id = saved.id;
+      if (saved.created) note.created = saved.created;
+      lsSet('sat-notes', notes);
+      renderNotes();
+    }
   } catch(e) {}
 }
 
@@ -1535,37 +1600,69 @@ async function deleteNote(id) {
   } catch(e) {}
 }
 
-// Progress (API primary, localStorage mirror — works fully offline / on serverless)
+// Progress (API primary, localStorage mirror — works fully offline / on serverless).
+// The stored doc carries updated_at; the newer of server/local wins outright,
+// so un-completing a day or un-starring a word syncs instead of resurrecting
+// via union. Docs without a timestamp (legacy) fall back to a one-time union.
 function progressDoc() {
   return {
     completed_days: [...completedDays],
-    total_words_studied: wordsStudied,
+    total_words_studied: seenWords.size,
+    seen_words: [...seenWords].slice(-5000),
     mastered_words: [...masteredWords],
     streak,
     best_quiz: bestQuiz,
+    best_quiz_n: bestQuizN,
     best_timed: bestTimed,
+    best_timed_n: bestTimedN,
     quizzes_taken: quizzesTaken,
     wrong_words: [...wrongWords].slice(-200),
     gates,
-    last_visit: new Date().toISOString().slice(0, 10)
+    last_visit: new Date().toISOString().slice(0, 10),
+    updated_at: new Date().toISOString()
   };
+}
+function applyProgressDoc(data) {
+  completedDays = new Set(data.completed_days || []);
+  seenWords = new Set(data.seen_words || []);
+  masteredWords = new Set(data.mastered_words || []);
+  wrongWords = new Set((data.wrong_words || []).slice(-200));
+  gates = (data.gates && typeof data.gates === 'object') ? data.gates : {};
+  bestQuiz = data.best_quiz || 0;
+  bestQuizN = data.best_quiz_n || 0;
+  bestTimed = data.best_timed || 0;
+  bestTimedN = data.best_timed_n || 0;
+  quizzesTaken = data.quizzes_taken || 0;
+  return data.streak || 0;
 }
 async function loadProgress() {
   let data = {};
   try { data = await (await fetch(`${BASE}/progress`)).json(); } catch(e) {}
+  if (data && typeof data === 'object' && data.error) data = {};
   const local = lsGet('sat-progress', {});
-  const union = (a, b) => [...new Set([...(a || []), ...(b || [])])];
-  completedDays = new Set(union(data.completed_days, local.completed_days));
-  masteredWords = new Set(union(data.mastered_words, local.mastered_words));
-  wrongWords = new Set(union(data.wrong_words, local.wrong_words).slice(-200));
-  gates = Object.assign({}, local.gates, data.gates);
-  bestQuiz = Math.max(data.best_quiz || 0, local.best_quiz || 0);
-  bestTimed = Math.max(data.best_timed || 0, local.best_timed || 0);
-  quizzesTaken = Math.max(data.quizzes_taken || 0, local.quizzes_taken || 0);
+  let baseStreak = 0;
+  if (data.updated_at || local.updated_at) {
+    const winner = (!local.updated_at || (data.updated_at && data.updated_at >= local.updated_at)) ? data : local;
+    baseStreak = applyProgressDoc(winner && typeof winner === 'object' ? winner : {});
+  } else {
+    // Legacy docs without timestamps: union once, then all future saves win.
+    const union = (a, b) => [...new Set([...(a || []), ...(b || [])])];
+    completedDays = new Set(union(data.completed_days, local.completed_days));
+    masteredWords = new Set(union(data.mastered_words, local.mastered_words));
+    seenWords = new Set(union(data.seen_words, local.seen_words));
+    wrongWords = new Set(union(data.wrong_words, local.wrong_words).slice(-200));
+    gates = Object.assign({}, local.gates, data.gates);
+    bestQuiz = Math.max(data.best_quiz || 0, local.best_quiz || 0);
+    bestQuizN = Math.max(data.best_quiz_n || 0, local.best_quiz_n || 0);
+    bestTimed = Math.max(data.best_timed || 0, local.best_timed || 0);
+    bestTimedN = Math.max(data.best_timed_n || 0, local.best_timed_n || 0);
+    quizzesTaken = Math.max(data.quizzes_taken || 0, local.quizzes_taken || 0);
+    baseStreak = Math.max(data.streak || 0, local.streak || 0);
+  }
   // streak: consecutive visit-days
   const today = new Date().toISOString().slice(0, 10);
   const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-  streak = Math.max(data.streak || 0, local.streak || 0);
+  streak = baseStreak;
   const lastVisit = data.last_visit || local.last_visit;
   if (lastVisit !== today) {
     streak = (lastVisit === yest) ? streak + 1 : 1;
@@ -1573,7 +1670,7 @@ async function loadProgress() {
   await saveProgress();
 }
 
-async function saveProgress() {
+async function saveProgressNow() {
   const doc = progressDoc();
   lsSet('sat-progress', doc);
   try {
@@ -1584,10 +1681,27 @@ async function saveProgress() {
     });
   } catch(e) {}
 }
+// Debounced save: rapid card/mastered toggles collapse into one write,
+// flushed on tab hide/close so no state is lost.
+let saveT = null;
+function saveProgress() {
+  if (saveT) clearTimeout(saveT);
+  saveT = setTimeout(() => { saveT = null; saveProgressNow(); }, 400);
+  return Promise.resolve();
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  const flush = () => { if (saveT) { clearTimeout(saveT); saveT = null; saveProgressNow(); } };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+}
 
 function esc(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+// escAttr is esc(): safe for both text and double/single-quoted attributes.
+// All dynamic actions go through delegated data-act buttons (see content click
+// handler) so no untrusted string is ever interpolated into inline JS.
+const escAttr = esc;
 
 function speak(t) {
   try {
@@ -1617,6 +1731,7 @@ function debouncedSearch(v) {
 
 function runSearch(q) {
   q = q.trim().toLowerCase();
+  stopTimer();
   if (q.length < 2) { renderDay(currentDay); return; }
   const hits = [];
   for (const p of studyPlan) {
@@ -1639,6 +1754,7 @@ function runSearch(q) {
 }
 
 function updateHeader() {
+  document.getElementById('totalWords').textContent = totalWords();
   document.getElementById('completedCount').textContent = completedDays.size;
   document.getElementById('progressPct').textContent = Math.round((completedDays.size / totalDays()) * 100) + '%';
   document.getElementById('masteredCount').textContent = masteredWords.size;
@@ -1661,9 +1777,64 @@ try {
   applyTheme(q === 'dark' || q === 'light' ? q : (localStorage.getItem('study-theme') || 'light'));
 } catch(e) {}
 
-// Token Status
+// Seen words (unique, persisted) — replaces the old mutation-counter that
+// grew unbounded on every re-render.
+function markSeen(list) {
+  let changed = false;
+  for (const w of (list || [])) {
+    const k = w && w.word;
+    if (k && !seenWords.has(k)) {
+      if (seenWords.size > 5000) seenWords.delete(seenWords.values().next().value);
+      seenWords.add(k);
+      changed = true;
+    }
+  }
+  if (changed) saveProgress();
+}
+
+// Delegated actions: every dynamic button carries data-act + data-* values,
+// so untrusted strings never enter inline JS and text is always esc()-aped.
+document.addEventListener('click', (e) => {
+  const el = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!el || !document.getElementById('content').contains(el)) return;
+  const act = el.getAttribute('data-act');
+  const word = el.getAttribute('data-word');
+  if (act === 'speak' && word) { e.stopPropagation(); speak(word); }
+  else if (act === 'master' && word) { e.stopPropagation(); toggleMastered(word, el); }
+  else if (act === 'review-got' && word) { e.stopPropagation(); masterFromReview(word); }
+  else if (act === 'flip') { el.classList.toggle('flipped'); }
+  else if (act === 'focus-flip') {
+    if (!focus) return;
+    focus.flipped = !focus.flipped; focus.dir = null; renderFocus();
+  }
+  else if (act === 'focus-shuffle') { startFocus(el.getAttribute('data-shuffled') !== '1'); }
+  else if (act === 'focus-grid') { gridView = true; focus = null; renderDay(currentDay); }
+  else if (act === 'quiz-opt') {
+    const idx = Number(el.getAttribute('data-idx'));
+    if (quiz && quiz.qs[quiz.i] && quiz.qs[quiz.i].options[idx] !== undefined) answerQuiz(quiz.qs[quiz.i].options[idx]);
+  }
+  else if (act === 'ex-opt') {
+    checkAnswer(Number(el.getAttribute('data-day')), Number(el.getAttribute('data-ex')), Number(el.getAttribute('data-idx')));
+  }
+});
+
+// Token status: poll the backend when reachable, otherwise fall back to a
+// local 2s timer so the pill still behaves offline / on static hosting.
 let lastAiCall = 0;
-function updateTokenStatus() {
+let serverTokenOk = false;
+async function updateTokenStatus() {
+  try {
+    const r = await fetch(`${BASE}/token-status`);
+    if (r.ok) {
+      const s = await r.json();
+      serverTokenOk = true;
+      const status = document.getElementById('tokenStatus');
+      status.textContent = s.can_make_ai_call ? '✓ Ready' : `⏳ Wait ${Math.max(1, Math.ceil(s.interval_ms / 1000 - s.seconds_since_last_call))}s`;
+      status.className = 'token-status' + (s.can_make_ai_call ? '' : ' waiting');
+      return;
+    }
+  } catch(e) {}
+  if (serverTokenOk) return; // keep last known server state until it recovers
   const now = Date.now();
   const elapsed = now - lastAiCall;
   const canCall = elapsed >= 2000;
@@ -1675,6 +1846,7 @@ function updateTokenStatus() {
 // Chart
 function drawChart() {
   const canvas = document.getElementById('progressChart');
+  if (!canvas || !canvas.offsetWidth) return;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   canvas.width = canvas.offsetWidth * dpr;
@@ -1719,9 +1891,10 @@ function drawChart() {
   ctx.strokeStyle = C_ACC;
   ctx.lineWidth = 2;
   ctx.beginPath();
+  const span = Math.max(1, data.length - 1);
   data.forEach((p, i) => {
-    const x = pad.left + (chartW / (data.length - 1)) * i;
-    const y = pad.top + chartH - (p.words / 35) * chartH;
+    const x = pad.left + (chartW / span) * i;
+    const y = pad.top + chartH - (p.words / maxDayWords()) * chartH;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
@@ -1729,8 +1902,8 @@ function drawChart() {
 
   // Points
   data.forEach((p, i) => {
-    const x = pad.left + (chartW / (data.length - 1)) * i;
-    const y = pad.top + chartH - (p.words / 35) * chartH;
+    const x = pad.left + (chartW / span) * i;
+    const y = pad.top + chartH - (p.words / maxDayWords()) * chartH;
     ctx.fillStyle = p.studied ? C_OK : C_ACC;
     ctx.beginPath();
     ctx.arc(x, y, p.studied ? 5 : 3, 0, Math.PI * 2);
@@ -1743,24 +1916,16 @@ function drawChart() {
   ctx.textAlign = 'center';
   const step = Math.max(1, Math.ceil(data.length / 8));
   for (let i = 0; i < data.length; i += step) {
-    const x = pad.left + (chartW / (data.length - 1)) * i;
+    const x = pad.left + (chartW / span) * i;
     ctx.fillText('D' + data[i].day, x, h - 8);
   }
 }
 
 // Init
-let wordsStudied = 0;
 loadData();
 loadNotes();
 updateTokenStatus();
-setInterval(updateTokenStatus, 1000);
-
-// Track word views
-const observer = new MutationObserver(() => {
-  const visibleWords = document.querySelectorAll('.word-card');
-  wordsStudied += visibleWords.length;
-});
-observer.observe(document.getElementById('content'), { childList: true, subtree: true });
+setInterval(updateTokenStatus, 5000);
 </script>
 </body>
 </html>

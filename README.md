@@ -21,8 +21,10 @@ vercel login
 vercel --prod
 ```
 
-The repo ships `vercel.json` (all routes → the Flask app in `api/index.py`,
-word data bundled via `includeFiles`) and pinned `requirements.txt`.
+The repo ships `vercel.json` (rewrites for `/`, `/api/plan`, `/api/days`,
+`/api/notes`, `/api/progress` → the matching Flask app in `api/*.py` sharing
+`api/_core.py`, word data bundled via `includeFiles`) and pinned
+`requirements.txt`.
 Notes:
 
 - Serverless filesystems are read-only — the backend stores notes/progress
@@ -54,7 +56,8 @@ git push -u origin main
 | `notes/` | Local runtime data (git-ignored) |
 | `rebuild.py` | Reproducible data build (WordNet + wordfreq, zero model calls) |
 | `gen_core.py` | Builds the 125-word curated core (`data/sources/words_core.json`) |
-| `test_quiz.js` / `test_focus.js` | Regression tests (`node test_*.js`) |
+| `test_quiz.js` / `test_focus.js` | Regression tests (`npm test`) |
+| `test_api.py` | Backend smoke test (`python3 test_api.py`) |
 | `DESIGN.md` / `tokens.json` | Token spec (lint-clean) + DTCG export |
 
 ## API
@@ -62,18 +65,24 @@ git push -u origin main
 - `GET /api/days` — day index (topic, word count)
 - `GET /api/plan` — full plan
 - `GET /api/words.json` — raw word list (local Flask)
-- `GET /api/day/<n>`, `/api/words/random`, `/api/exercise/<n>`, `/api/token-status` — local Flask only
+- `GET /api/day/<n>`, `/api/words/random`, `/api/exercise/<n>` — local Flask only
+- `GET /api/token-status` (report) · `POST /api/token-status` (mark an AI call) — local Flask only
 - `GET/POST /api/progress` · `GET/POST/PUT/DELETE /api/notes`
 
 ## Data
 
-3365 SAT / 1300 IELTS (AWL-first) / 335 Both · 29 WordNet-derived themes ·
+3393 SAT / 1300 IELTS (AWL-first) / 307 Both · 29 WordNet-derived themes ·
 frequency-graded difficulty · sense-ranked definitions · validated exercises.
+(Quotas in `rebuild.py` target 2200/1300/1500; the Both overlap in the
+sources is smaller, so shortfalls spill into SAT — the build prints the
+actual fill per category.)
 
 ```bash
 python3 -m pip install nltk wordfreq
 python3 rebuild.py
-node test_quiz.js
+npm test                    # quiz + focus regression tests
+python3 -m pip install flask flask-cors
+python3 test_api.py         # backend smoke test
 ```
 
 ## License

@@ -16,6 +16,11 @@ for (let i = 0; i < 300; i++) {
   if (!q.options.includes(q.answer)) { console.log('ANSWER MISSING', w.word, t); bad++; }
   if (new Set(q.options).size !== 4) { console.log('DUP OPTS', w.word, t, q.options); bad++; }
   if (t === 'synonym_match' && q.answer === w.word) { console.log('SELF ANSWER', w.word); bad++; }
+  if (t === 'synonym_match') {
+    const syns = new Set((w.synonyms || []).filter(s => s !== w.word));
+    const clash = q.options.filter(o => o !== q.answer && syns.has(o));
+    if (clash.length) { console.log('AMBIGUOUS DISTRACTOR', w.word, clash); bad++; }
+  }
   if (t === 'fill_in_blank' && !q.q.includes('_____')) { console.log('NO BLANK', w.word); bad++; }
 }
 console.log('types:', JSON.stringify(types), '| bad:', bad);

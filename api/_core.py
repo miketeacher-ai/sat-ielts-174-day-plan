@@ -42,8 +42,12 @@ NOTES_DIR = notes_dir()
 
 def load_json(path, default):
     if os.path.exists(path):
-        with open(path, encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(path, encoding='utf-8') as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return default
+        return data
     return default
 
 

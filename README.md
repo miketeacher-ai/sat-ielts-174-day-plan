@@ -21,10 +21,13 @@ vercel login
 vercel --prod
 ```
 
-The repo ships `vercel.json` (rewrites for `/`, `/api/plan`, `/api/days`,
-`/api/notes`, `/api/progress` → the matching Flask app in `api/*.py` sharing
-`api/_core.py`, word data bundled via `includeFiles`) and pinned
-`requirements.txt`.
+The repo ships `vercel.json` (bundles word data via `includeFiles`) and
+pinned `requirements.txt`. Because `flask` is a dependency, Vercel applies
+its Flask preset, which needs a root entrypoint exposing `app` — that is
+`app.py`, a thin re-export of the full app in `api/server.py` (all routes:
+`/`, `/api/*`, `/data/*`). Do not rely on the per-file functions under
+`api/` on Vercel: the Flask preset takes precedence and they never become
+routes (they remain useful as local-dev reference).
 Notes:
 
 - Serverless filesystems are read-only — the backend stores notes/progress
@@ -49,7 +52,8 @@ git push -u origin main
 |---|---|
 | `index.html` | The app — UI + CSS + JS, no build step, no CDN JS (served at `/` everywhere) |
 | `api/server.py` | Flask backend + JSON API (local dev; also serves `/data/*`) |
-| `api/*.py` | Vercel serverless endpoints (one Flask app per route) + shared `_core.py` |
+| `app.py` | Vercel Flask entrypoint (re-exports `api/server.py`) |
+| `api/*.py` | Per-route Flask apps (local-dev reference) + shared `_core.py` |
 | `data/words.json` | 5000 words: definition, POS, difficulty 3–5, synonyms, example, category, theme, day |
 | `data/study_plan.json` | 174 days: theme topic, ~30 words, 2 exercises |
 | `data/sources/` | Provenance: SAT lists, AWL, English-dict filter, curated core |

@@ -1,13 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/*.py": { "includeFiles": "data/**" }
-  },
-  "rewrites": [
-    { "source": "/api/plan", "destination": "/api/plan.py" },
-    { "source": "/api/days", "destination": "/api/days.py" },
-    { "source": "/api/notes", "destination": "/api/notes.py" },
-    { "source": "/api/progress", "destination": "/api/progress.py" },
-    { "source": "/", "destination": "/api/rootfn.py" }
-  ]
+    "app.py": { "includeFiles": "data/**" }
+  }
 }

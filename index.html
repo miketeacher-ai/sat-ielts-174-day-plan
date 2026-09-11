@@ -642,6 +642,38 @@ canvas {
   color: var(--fg);
 }
 
+/* Main tabs: Study vs Progress */
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+  color: #fff;
+  border-color: var(--accent);
+}
+.tab-btn:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+#view-study[hidden], #view-progress[hidden] { display: none; }
+.main-progress { align-items: start; }
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -772,13 +804,17 @@ canvas {
   </div>
 </div>
 
+<div class="tabs" role="tablist" aria-label="Main views">
+  <button class="tab-btn active" id="tabStudy" role="tab" aria-selected="true" onclick="switchTab('study')">📖 Study</button>
+  <button class="tab-btn" id="tabProgress" role="tab" aria-selected="false" onclick="switchTab('progress')">📊 Progress</button>
+</div>
+
+<div id="view-study">
 <div class="nav" id="dayNav"></div>
 
 <div class="search-wrap">
   <input type="text" id="globalSearch" placeholder="🔍 Search words..." autocomplete="off" aria-label="Search all words" oninput="debouncedSearch(this.value)">
 </div>
-
-<section class="dash-wrap"><div class="dash" id="dashboard"></div></section>
 
 <div class="main">
   <div class="content" id="content"><div class="card"><div class="empty-state"><div class="empty-state-icon">📚</div><p>Loading study plan…</p></div></div></div>
@@ -794,13 +830,22 @@ canvas {
         <button onclick="addNote()">Add</button>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title" style="margin-bottom:12px">📊 Progress</div>
-      <div class="progress-chart">
-        <canvas id="progressChart" width="340" height="200"></canvas>
-      </div>
+  </div>
+</div>
+</div>
+
+<div id="view-progress" hidden>
+<section class="dash-wrap"><div class="dash" id="dashboard"></div></section>
+
+<div class="main main-progress">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px">📊 Words per day</div>
+    <div class="progress-chart">
+      <canvas id="progressChart" width="340" height="200"></canvas>
     </div>
   </div>
+  <div class="card" id="reviewPreview"></div>
+</div>
 </div>
 
 <script>
@@ -864,6 +909,9 @@ async function loadData() {
   updateHeader();
   renderDashboard();
   drawChart();
+  let savedTab = 'study';
+  try { savedTab = localStorage.getItem('study-tab') || 'study'; } catch(e) {}
+  switchTab(savedTab);
 }
 
 function buildMeta() {
@@ -973,6 +1021,26 @@ async function masterFromReview(w) {
 
 let focus = null;
 let gridView = false;
+let activeTab = 'study';
+
+// Standalone tabs: Study (days, words, exercises, notes) vs Progress
+// (dashboard, chart, review queue). Choice persists across visits.
+function switchTab(name) {
+  activeTab = name === 'progress' ? 'progress' : 'study';
+  try { localStorage.setItem('study-tab', activeTab); } catch(e) {}
+  document.getElementById('view-study').hidden = activeTab !== 'study';
+  document.getElementById('view-progress').hidden = activeTab !== 'progress';
+  const ts = document.getElementById('tabStudy');
+  const tp = document.getElementById('tabProgress');
+  if (ts) { ts.classList.toggle('active', activeTab === 'study'); ts.setAttribute('aria-selected', activeTab === 'study'); }
+  if (tp) { tp.classList.toggle('active', activeTab === 'progress'); tp.setAttribute('aria-selected', activeTab === 'progress'); }
+  if (activeTab === 'progress' && studyPlan.length) {
+    renderDashboard();
+    drawChart();
+    renderReviewPreview();
+  }
+  window.scrollTo({ top: 0 });
+}
 
 function startFocus(shuffled) {
   const plan = studyPlan.find(p => p.day === currentDay);
@@ -1142,6 +1210,7 @@ function shuffle(a) {
 }
 
 function startQuiz(n = 10, onlyWords = null, timed = false, extra = null) {
+  switchTab('study');
   // Reuse the cached word list built by buildMeta() instead of re-walking
   // the whole plan on every quiz launch.
   let pool = allWords.length ? [...allWords] : [];
@@ -1339,6 +1408,7 @@ function reviewList() {
 }
 
 function reviewView() {
+  switchTab('study');
   const list = reviewList();
   const content = document.getElementById('content');
   stopTimer();
@@ -1357,6 +1427,20 @@ function reviewView() {
       <div class="search-day">Day ${esc(String(m.day || '?'))} →</div>
     </div>`; }).join('') || '<div class="empty-state"><div class="empty-state-icon">🎉</div><p>All clear — nothing to review</p></div>'}</div>`;
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Compact review summary for the Progress tab (full queue lives in Study).
+function renderReviewPreview() {
+  const el = document.getElementById('reviewPreview');
+  if (!el) return;
+  const list = reviewList();
+  const top = list.slice(0, 8);
+  el.innerHTML = `<div class="card-header"><span class="card-title">📋 Review queue (${list.length})</span></div>
+    <div class="dash-sub" style="margin-bottom:8px">Missed questions first, then unmastered words from finished days.</div>
+    ${top.map(w => { const m = wordObj[w] || {}; return `
+      <div class="quiz-review" style="margin-top:0;"><div>• <strong class="wlink" onclick="selectDay(${Number(m.day) || currentDay})" title="Open Day ${esc(String(m.day || '?'))}">${esc(w)}</strong> <span class="word-pos">${esc(m.pos || '')}</span></div></div>`; }).join('')
+      || '<div class="empty-state"><div class="empty-state-icon">🎉</div><p>All clear — nothing to review</p></div>'}
+    ${list.length ? `<div class="quiz-actions"><button class="quiz-btn" onclick="reviewView()">Open full review →</button><button class="quiz-btn" onclick="startQuiz(Math.min(10,reviewList().length),reviewList())">Quiz these →</button></div>` : ''}`;
 }
 
 function renderNav() {
@@ -1396,6 +1480,7 @@ function renderNav() {
 function selectDay(d) {
   currentDay = d;
   gridView = false;
+  switchTab('study');
   renderNav();
   renderDay(d);
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1732,6 +1817,7 @@ function debouncedSearch(v) {
 function runSearch(q) {
   q = q.trim().toLowerCase();
   stopTimer();
+  switchTab('study');
   if (q.length < 2) { renderDay(currentDay); return; }
   const hits = [];
   for (const p of studyPlan) {

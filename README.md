@@ -1,6 +1,7 @@
-# SAT & IELTS 174-Day Vocabulary Plan
+# SAT & IELTS Vocabulary Plan
 
-5000 real B1+ exam words across 174 theme-based days (~30/day), 2 exercises
+5000 real B1+ exam words across build-derived theme-based days (~30/day,
+currently 173 — see `data/build_report.json`), 2 exercises
 per day, compulsory checkpoint + final quizzes, animated flashcards, notes,
 quizzes, review queue, and a data-rich dashboard — in a single-page app
 with a Flask backend.
@@ -55,7 +56,7 @@ git push -u origin main
 | `app.py` | Vercel Flask entrypoint (re-exports `api/server.py`) |
 | `api/*.py` | Per-route Flask apps (local-dev reference) + shared `_core.py` |
 | `data/words.json` | 5000 words: definition, POS, difficulty 3–5, synonyms, example, category, theme, day |
-| `data/study_plan.json` | 174 days: theme topic, ~30 words, 2 exercises |
+| `data/study_plan.json` | Theme-based days (~30 words each): topic, 2 exercises (count is build-derived) |
 | `data/sources/` | Provenance: SAT lists, AWL, English-dict filter, curated core |
 | `notes/` | Local runtime data (git-ignored) |
 | `rebuild.py` | Reproducible data build (WordNet + wordfreq, zero model calls) |

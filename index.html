@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SAT & IELTS 174-Day Study Plan</title>
+<title>SAT & IELTS Study Plan</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 <style>
 :root {
@@ -782,7 +782,7 @@ canvas {
 <body>
 
 <div class="header">
-  <h1>📚 SAT & IELTS 174-Day Plan</h1>
+  <h1 id="appTitle">📚 SAT & IELTS Study Plan</h1>
   <button id="themeBtn" class="quiz-btn" style="padding:6px 12px;" title="Toggle dark mode" aria-label="Toggle dark mode" onclick="toggleTheme()">🌙</button>
   <div class="header-stats">
     <div class="stat">
@@ -845,6 +845,15 @@ canvas {
     </div>
   </div>
   <div class="card" id="reviewPreview"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">💾 Backup & transfer</span></div>
+    <div class="dash-sub" style="margin-bottom:8px">Download all progress and notes as one JSON file, or restore from a backup on a new device.</div>
+    <div class="quiz-actions" style="margin-top:0">
+      <button class="quiz-btn" onclick="exportBackup()">⬇ Export backup</button>
+      <button class="quiz-btn" onclick="document.getElementById('importFile').click()">⬆ Import backup</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden onchange="importBackupFile(this)">
+    </div>
+  </div>
 </div>
 </div>
 
@@ -867,6 +876,7 @@ let bestTimedN = 0;
 let quizzesTaken = 0;
 let wrongWords = new Set();
 let seenWords = new Set();
+let srMap = {};   // word -> {n: reps, e: easiness, i: intervalDays, d: dueTimestamp}
 let wordObj = {};
 let allWords = [];
 let selectedAnswer = null;
@@ -927,6 +937,11 @@ function buildMeta() {
   }
   const s = document.getElementById('globalSearch');
   if (s) s.placeholder = `🔍 Search all ${totalWords()} words...`;
+  for (const k in srMap) if (!wordObj[k]) delete srMap[k];
+  // Day count is build-derived (see data/build_report.json) — never hardcode it.
+  document.title = `SAT & IELTS ${totalDays()}-Day Study Plan`;
+  const h1 = document.getElementById('appTitle');
+  if (h1) h1.textContent = `📚 SAT & IELTS ${totalDays()}-Day Plan`;
 }
 
 function donut(pct, label, green) {
@@ -960,6 +975,7 @@ function wotdTile() {
 function renderDashboard() {
   const el = document.getElementById('dashboard');
   if (!el || !studyPlan.length) return;
+  const dueN = srDueList().length;
   const daysPct = completedDays.size / totalDays();
   const mByCat = {}, mByDiff = {};
   for (const w of masteredWords) {
@@ -975,7 +991,7 @@ function renderDashboard() {
   const catCls = { SAT: '', IELTS: 'green', Both: 'purple' };
   el.innerHTML = `
     <div class="dash-head">
-      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of ${totalDays()} days · ${masteredWords.size} of ${totalWords()} words mastered${quizzesTaken ? ` · best quiz ${bestQuiz}${bestQuizN ? '/' + bestQuizN : ''}` : ''}</div></div>
+      <div><h2>Your progress</h2><div class="dash-sub">${completedDays.size} of ${totalDays()} days · ${masteredWords.size} of ${totalWords()} words mastered · 📅 ${dueN} due${quizzesTaken ? ` · best quiz ${bestQuiz}${bestQuizN ? '/' + bestQuizN : ''}` : ''}</div></div>
       <div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="continue-btn" onclick="selectDay(${next})">Continue: Day ${next} →</button><button class="quiz-btn" onclick="startQuiz()">⚡ Quiz</button><button class="quiz-btn" onclick="startQuiz(10,null,true)">⏱ Timed</button><button class="quiz-btn" onclick="reviewView()">📋 Review (${reviewList().length})</button></div></div>
     </div>
     <div class="dash-grid">
@@ -998,8 +1014,8 @@ function levelLabel(d) {
 }
 
 async function toggleMastered(word, btn) {
-  if (masteredWords.has(word)) masteredWords.delete(word);
-  else { masteredWords.add(word); wrongWords.delete(word); }
+  if (masteredWords.has(word)) { masteredWords.delete(word); delete srMap[word]; }
+  else { masteredWords.add(word); wrongWords.delete(word); srUpdate(word, 5); }
   if (btn) btn.classList.toggle('on', masteredWords.has(word));
   await saveProgress();
   updateHeader();
@@ -1010,8 +1026,8 @@ async function toggleMastered(word, btn) {
 }
 
 async function masterFromReview(w) {
-  if (masteredWords.has(w)) masteredWords.delete(w);
-  else { masteredWords.add(w); wrongWords.delete(w); }
+  if (masteredWords.has(w)) { masteredWords.delete(w); delete srMap[w]; }
+  else { masteredWords.add(w); wrongWords.delete(w); srUpdate(w, 5); }
   await saveProgress();
   updateHeader();
   renderNav();
@@ -1179,6 +1195,7 @@ async function focusMasterNext() {
   if (!focus) return;
   const w = focus.words[focus.i].word;
   if (!masteredWords.has(w)) { masteredWords.add(w); wrongWords.delete(w); }
+  srUpdate(w, 5);
   await saveProgress();
   updateHeader();
   renderNav();
@@ -1348,6 +1365,7 @@ function answerQuiz(selected) {
   const ok = selected === q.answer;
   if (ok) quiz.score++;
   else { wrongWords.add(q.word); if (wrongWords.size > 200) wrongWords.delete(wrongWords.values().next().value); }
+  srUpdate(q.word, ok ? 4 : 1);
   quiz.log.push({ q, picked: selected, ok });
   const ex = document.getElementById('quizExplain');
   ex.textContent = (ok ? '✓ ' : '✕ ') + q.explain;
@@ -1386,22 +1404,56 @@ async function nextQuiz() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Spaced repetition (SM-2): quality 5 = "Got it", 4 = quiz correct,
+// 1 = quiz wrong. Unseen words stay unscheduled until first interaction;
+// mastered words are excluded from due lists.
+function srUpdate(word, q) {
+  if (!word || !wordObj[word]) return;
+  q = Math.max(0, Math.min(5, q));
+  const now = Date.now();
+  const s = srMap[word] || { n: 0, e: 2.5, i: 0, d: 0 };
+  if (q >= 3) {
+    if (s.n === 0) s.i = 1;
+    else if (s.n === 1) s.i = 6;
+    else s.i = Math.max(1, Math.round(s.i * s.e));
+    s.n++;
+    s.e = Math.max(1.3, s.e + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+  } else {
+    s.n = 0;
+    s.i = 1;
+  }
+  s.d = now + s.i * 864e5;
+  srMap[word] = s;
+  saveProgress();
+}
+function srDueList() {
+  const now = Date.now();
+  const out = [];
+  for (const k in srMap) {
+    if (!masteredWords.has(k) && wordObj[k] && srMap[k].d <= now) out.push(k);
+  }
+  out.sort((a, b) => srMap[a].d - srMap[b].d);
+  return out;
+}
+
 // Navigation
 function reviewList() {
   const out = [];
-  for (const w of wrongWords) {
-    if (wordObj[w] && !masteredWords.has(w)) {
+  const seen = new Set();
+  const push = (w) => {
+    if (w && wordObj[w] && !masteredWords.has(w) && !seen.has(w)) {
+      seen.add(w);
       out.push(w);
-      if (out.length >= 60) return out;
+      return out.length < 60;
     }
-  }
+    return true;
+  };
+  for (const w of srDueList()) { if (!push(w)) return out; }
+  for (const w of wrongWords) { if (!push(w)) return out; }
   for (const p of studyPlan) {
     if (!completedDays.has(p.day)) continue;
     for (const w of (p.words || [])) {
-      if (!masteredWords.has(w.word) && !out.includes(w.word)) {
-        out.push(w.word);
-        if (out.length >= 60) return out;
-      }
+      if (!push(w.word)) return out;
     }
   }
   return out;
@@ -1445,7 +1497,7 @@ function renderReviewPreview() {
 
 function renderNav() {
   const nav = document.getElementById('dayNav');
-  // Build the 174 buttons once; later calls only patch state in place so
+  // Build the day buttons once; later calls only patch state in place so
   // rapid mastered-toggles don't trash and rebuild the whole strip.
   if (nav.childElementCount !== totalDays()) {
     nav.innerHTML = '';
@@ -1581,6 +1633,12 @@ function checkAnswer(day, exIdx, optIdx) {
   if (!ex) return;
   const selected = ex.options[optIdx];
   const correct = ex.answer;
+  // Schedule repetitions only when the answer is itself a vocab word
+  // (fill_in_blank / definition_match); synonym answers aren't word keys.
+  if ((ex.type === 'fill_in_blank' || ex.type === 'definition_match') && wordObj[correct]) {
+    srUpdate(correct, selected === correct ? 4 : 1);
+    if (selected !== correct && wordObj[selected]) srUpdate(selected, 1);
+  }
   const exercise = document.getElementById(`ex-${day}-${exIdx}`);
   if (!exercise) return;
   const options = exercise.querySelectorAll('.exercise-option');
@@ -1702,6 +1760,7 @@ function progressDoc() {
     best_timed_n: bestTimedN,
     quizzes_taken: quizzesTaken,
     wrong_words: [...wrongWords].slice(-200),
+    sr: srMap,
     gates,
     last_visit: new Date().toISOString().slice(0, 10),
     updated_at: new Date().toISOString()
@@ -1712,6 +1771,7 @@ function applyProgressDoc(data) {
   seenWords = new Set(data.seen_words || []);
   masteredWords = new Set(data.mastered_words || []);
   wrongWords = new Set((data.wrong_words || []).slice(-200));
+  srMap = (data.sr && typeof data.sr === 'object' && !Array.isArray(data.sr)) ? data.sr : {};
   gates = (data.gates && typeof data.gates === 'object') ? data.gates : {};
   bestQuiz = data.best_quiz || 0;
   bestQuizN = data.best_quiz_n || 0;
@@ -1778,6 +1838,91 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   const flush = () => { if (saveT) { clearTimeout(saveT); saveT = null; saveProgressNow(); } };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
   window.addEventListener('pagehide', flush);
+}
+
+// Backup & transfer: one JSON file with progress + notes.
+function exportBackup() {
+  const payload = {
+    app: 'sat-ielts-vocab',
+    version: 1,
+    exported_at: new Date().toISOString(),
+    progress: lsGet('sat-progress', progressDoc()),
+    notes: lsGet('sat-notes', notes)
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `vocab-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function sanitizeProgress(p) {
+  const arr = (v) => Array.isArray(v) ? v : [];
+  const num = (v) => (typeof v === 'number' && isFinite(v)) ? v : 0;
+  return {
+    completed_days: arr(p.completed_days).filter(x => typeof x === 'number'),
+    seen_words: arr(p.seen_words).filter(x => typeof x === 'string'),
+    mastered_words: arr(p.mastered_words).filter(x => typeof x === 'string'),
+    wrong_words: arr(p.wrong_words).filter(x => typeof x === 'string'),
+    sr: (p.sr && typeof p.sr === 'object' && !Array.isArray(p.sr)) ? p.sr : {},
+    gates: (p.gates && typeof p.gates === 'object') ? p.gates : {},
+    streak: num(p.streak),
+    best_quiz: num(p.best_quiz),
+    best_quiz_n: num(p.best_quiz_n),
+    best_timed: num(p.best_timed),
+    best_timed_n: num(p.best_timed_n),
+    quizzes_taken: num(p.quizzes_taken),
+    total_words_studied: num(p.total_words_studied),
+    last_visit: (typeof p.last_visit === 'string') ? p.last_visit : new Date().toISOString().slice(0, 10),
+    updated_at: new Date().toISOString()
+  };
+}
+async function importBackupFile(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  let p;
+  try { p = JSON.parse(await f.text()); }
+  catch(e) { alert('Could not read that file as JSON.'); return; }
+  if (!p || typeof p !== 'object' || typeof p.progress !== 'object' || !Array.isArray(p.notes)) {
+    alert('Not a valid vocab backup file.');
+    return;
+  }
+  if (!confirm(`Replace local progress and notes with this backup (exported ${p.exported_at || 'unknown date'})?`)) return;
+  applyProgressDoc(sanitizeProgress(p.progress));
+  notes = p.notes.filter(n => n && n.id != null && typeof n.text === 'string');
+  await saveProgressNow();
+  // Mirror to the server so other devices converge: upsert everything in
+  // the backup, then delete server notes the backup doesn't contain.
+  try {
+    const remote = await (await fetch(`${BASE}/notes`)).json();
+    const rIds = new Set((Array.isArray(remote) ? remote : []).map(n => n && n.id));
+    const keep = new Set(notes.map(n => n.id));
+    for (const n of notes) {
+      await fetch(`${BASE}/notes`, {
+        method: rIds.has(n.id) ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(n)
+      });
+    }
+    for (const id of rIds) {
+      if (!keep.has(id)) {
+        await fetch(`${BASE}/notes`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+      }
+    }
+  } catch(e) {}
+  lsSet('sat-notes', notes);
+  await loadNotes();
+  updateHeader();
+  renderNav();
+  renderDay(currentDay);
+  renderDashboard();
+  drawChart();
+  renderReviewPreview();
 }
 
 function esc(s) {

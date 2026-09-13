@@ -12,6 +12,8 @@ cache/
 Thumbs.db
 # runtime user data — never commit
 notes/*.json
+*.db
+*.db-journal
 # generator backups
 *.v1bak
 *.bak

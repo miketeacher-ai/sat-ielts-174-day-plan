@@ -1,0 +1,16 @@
+{
+ "total": 5000,
+ "cats": {
+  "IELTS": 1300,
+  "SAT": 3393,
+  "Both": 307
+ },
+ "days": 173,
+ "per_day_min": 16,
+ "per_day_max": 30,
+ "quota_fill": {
+  "Both": "307/1500",
+  "SAT": "3393/2200",
+  "IELTS": "1300/1300"
+ }
+}

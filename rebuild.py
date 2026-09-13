@@ -204,16 +204,32 @@ MIN_DIFFICULTY = 3  # B1+ only: drop difficulty 1-2 (A1-B1 core vocabulary)
 # Filter BEFORE quota slicing (cached), and track exactly which words are
 # consumed, so quota offsets and spill leftovers stay aligned. Shortfalls
 # (e.g. a small Both overlap) spill from the other pools and are reported.
+# Words with no definition source (no sourced def AND no WordNet synset —
+# typically rare AWL subword forms) are dropped: enrich() cannot define them.
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def _has_wn(word):
+    return bool(wn.synsets(word.replace(' ', '_')))
+
+
+def has_definition(w):
+    src = sat_src.get(w)
+    if src and src.get('definition'):
+        return True
+    return _has_wn(w)
+
+
 WORDS = []
 consumed = set()
 def eligible(pool):
-    return [w for w in pool if w not in consumed and difficulty_cached(w) >= MIN_DIFFICULTY]
+    return [w for w in pool if w not in consumed and difficulty_cached(w) >= MIN_DIFFICULTY and has_definition(w)]
 def take(pool, cat, n):
     out = []
     for w in pool:
         if len(out) >= n:
             break
-        if w in consumed or difficulty_cached(w) < MIN_DIFFICULTY:
+        if w in consumed or difficulty_cached(w) < MIN_DIFFICULTY or not has_definition(w):
             continue
         consumed.add(w)
         out.append((w, sat_src.get(w, {}), cat))
@@ -272,6 +288,16 @@ if mixed_chunks:
         chunks[-1][1].extend(mixed_chunks.pop())
     for ch in mixed_chunks:
         chunks.append(('Mixed Academic Practice', ch))
+# balance: sliver merges can push a chunk over WORDS_PER_DAY; move overflow
+# to the smallest chunk until none exceeds it (a below-cap chunk must exist
+# whenever an over-cap one does, since the average is below cap).
+_lists = [lst for _, lst in chunks]
+while len(_lists) > 1:
+    _big = max(range(len(_lists)), key=lambda i: len(_lists[i]))
+    _small = min(range(len(_lists)), key=lambda i: len(_lists[i]))
+    if len(_lists[_big]) <= WORDS_PER_DAY or len(_lists[_small]) >= WORDS_PER_DAY:
+        break
+    _lists[_small].append(_lists[_big].pop())
 # order days easy -> hard by average difficulty; shuffle word order within each day
 def _avgd(c):
     return sum(w['difficulty'] for w in c[1]) / len(c[1])
@@ -372,3 +398,57 @@ print('cats:', dict(cc))
 print('per-day min/max:', min(dc.values()), max(dc.values()))
 print('avg difficulty:', round(sum(w['difficulty'] for w in WORDS) / len(WORDS), 2))
 print('sample ielts:', [w['word'] for w in WORDS if w['category'] == 'IELTS'][:8])
+
+# ---------- hard gates: fail the build instead of shipping bad data ----------
+import sys
+errors = []
+QUOTA_MIN = {'Both': 250, 'SAT': 2000, 'IELTS': 1100}  # floors, not targets
+if len(WORDS) != 5000 or len(set(w['word'] for w in WORDS)) != 5000:
+    errors.append(f"word count/unique != 5000 (got {len(WORDS)}/{len(set(w['word'] for w in WORDS))})")
+for cat, floor in QUOTA_MIN.items():
+    if cc.get(cat, 0) < floor:
+        errors.append(f"category {cat} below floor {floor}: {cc.get(cat, 0)}")
+for w in WORDS:
+    for f in ('word', 'definition', 'part_of_speech', 'difficulty', 'synonyms', 'example', 'theme', 'category', 'day'):
+        if f not in w or w[f] in (None, ''):
+            errors.append(f"word missing {f}: {w.get('word')}")
+            break
+    if w.get('difficulty') not in (3, 4, 5):
+        errors.append(f"difficulty out of B1+ range: {w.get('word')}={w.get('difficulty')}")
+day_ids = sorted(d['day'] for d in plan)
+if day_ids != list(range(1, len(plan) + 1)):
+    errors.append("day ids not contiguous 1..N")
+for d in plan:
+    if not (12 <= len(d['words']) <= 31):
+        errors.append(f"day {d['day']} size {len(d['words'])}")
+    if len(d.get('exercises', [])) != 2:
+        errors.append(f"day {d['day']} exercises != 2")
+by_word = {w['word']: w for w in WORDS}
+for d in plan:
+    for ex in d['exercises']:
+        opts, ans = ex['options'], ex['answer']
+        if ans not in opts:
+            errors.append(f"day {d['day']} answer missing: {ans}")
+        if len(set(opts)) != 4:
+            errors.append(f"day {d['day']} options != 4 unique: {opts}")
+        if ex['type'] == 'fill_in_blank' and '_____' not in ex['question']:
+            errors.append(f"day {d['day']} fill-in has no blank")
+        if ex['type'] == 'synonym_match':
+            m = re.search(r"meaning to '([^']+)'", ex['question'])
+            if m and m.group(1) in by_word:
+                syns = set(s for s in by_word[m.group(1)].get('synonyms', []) if s != m.group(1))
+                clash = [o for o in opts if o != ans and o in syns]
+                if clash:
+                    errors.append(f"day {d['day']} ambiguous distractor {clash} for {m.group(1)}")
+                if ans == m.group(1):
+                    errors.append(f"day {d['day']} synonym answer == word")
+if errors:
+    print(f"BUILD FAILED with {len(errors)} gate violations (first 20):")
+    for e in errors[:20]:
+        print(' -', e)
+    sys.exit(1)
+report = {'total': len(WORDS), 'cats': dict(cc), 'days': len(plan),
+          'per_day_min': min(dc.values()), 'per_day_max': max(dc.values()),
+          'quota_fill': {k: f"{cc.get(k, 0)}/{v}" for k, v in QUOTA.items()}}
+json.dump(report, open(os.path.join(DATA, 'build_report.json'), 'w'), indent=1)
+print('BUILD OK:', report)

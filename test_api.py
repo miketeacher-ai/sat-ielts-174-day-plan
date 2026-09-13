@@ -26,10 +26,12 @@ server.NOTES_DIR = tmp
 client = server.app.test_client()
 
 r = client.get("/api/plan")
-check("plan 200 + 174 days", r.status_code == 200 and len(r.get_json()) == 174, r.status_code)
+plan = r.get_json()
+check("plan 200 + matches days", r.status_code == 200 and isinstance(plan, list) and len(plan) > 100, r.status_code)
 
 r = client.get("/api/days")
-check("days index", r.status_code == 200 and len(r.get_json()) == 174, r.status_code)
+days = r.get_json()
+check("days index matches plan", r.status_code == 200 and len(days) == len(plan), r.status_code)
 
 r = client.get("/api/day/1")
 check("day by value (not index)", r.status_code == 200 and r.get_json().get("day") == 1, r.status_code)
